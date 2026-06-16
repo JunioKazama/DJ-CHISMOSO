@@ -1,24 +1,43 @@
+/**
+ * DJ CHISMOSO - Controlador Principal del Frontend (SPA)
+ * 
+ * Este archivo gestiona el estado de la aplicación, el enrutamiento de vistas,
+ * el envío de peticiones AJAX (Fetch API) a api.php y la interactividad visual de la interfaz.
+ */
+
+// --- ESTADO GLOBAL DE LA APP ---
 const AppState = {
     currentUser: null,
     currentCategory: '',
     currentSearch: '',
-    currentFilter: 'recent',
-    currentView: 'feed',
+    currentFilter: 'recent', // 'recent' o 'popular' (Trending)
+    currentView: 'feed', // 'feed' o 'profile'
     selectedProfileId: null,
     searchTimeout: null
 };
 
+// --- AL CARGAR EL DOCUMENTO ---
 document.addEventListener('DOMContentLoaded', () => {
     AppInit();
 });
 
+// --- INICIALIZACIÓN DE LA APLICACIÓN ---
 function AppInit() {
+    // 1. Obtener la sesión del usuario actual
     fetchSession();
+
+    // 2. Cargar contenido inicial de los feeds y paneles laterales
     loadFeed();
     loadRankings();
     loadTrends();
+
+    // 3. Vincular todos los manejadores de eventos
     bindEventEvents();
 }
+
+// ==========================================
+// 1. GESTIÓN DE SESIÓN Y USUARIO (AJAX)
+// ==========================================
 
 async function fetchSession() {
     try {
@@ -28,6 +47,8 @@ async function fetchSession() {
         if (result.success && result.data) {
             AppState.currentUser = result.data;
             renderUserHeader(result.data);
+            
+            // Mostrar opción de "Mi Perfil" en el menú de navegación
             document.getElementById('btn-nav-profile').style.display = 'flex';
         } else {
             AppState.currentUser = null;
@@ -49,6 +70,7 @@ function renderUserHeader(user) {
         </div>
     `;
     
+    // Al hacer clic en el menú del usuario en la cabecera, nos lleva a su perfil
     document.getElementById('header-user-menu').addEventListener('click', () => {
         switchView('profile', user.id);
     });
@@ -67,10 +89,16 @@ function renderGuestHeader() {
     });
 }
 
+// ==========================================
+// 2. ENRUTAMIENTO DE VISTAS (SPA)
+// ==========================================
+
 function switchView(viewName, targetId = null) {
+    // Ocultar todas las vistas
     const views = document.querySelectorAll('.app-view');
     views.forEach(v => v.classList.remove('active'));
     
+    // Desactivar todos los botones de navegación
     const navButtons = document.querySelectorAll('.nav-btn');
     navButtons.forEach(btn => btn.classList.remove('active'));
 
@@ -84,6 +112,7 @@ function switchView(viewName, targetId = null) {
     } 
     else if (viewName === 'profile') {
         document.getElementById('view-profile').classList.add('active');
+        // Si es el perfil del usuario activo, marcamos su botón de navegación
         if (targetId && AppState.currentUser && parseInt(targetId) === parseInt(AppState.currentUser.id)) {
             document.getElementById('btn-nav-profile').classList.add('active');
         }
@@ -91,11 +120,18 @@ function switchView(viewName, targetId = null) {
         loadProfileData(targetId);
     }
     
+    // Desplazarse al inicio
     document.querySelector('.content-area').scrollTop = 0;
 }
 
+// ==========================================
+// 3. CARGA Y RENDERIZADO DE FEED (AJAX)
+// ==========================================
+
 async function loadFeed() {
     const postsContainer = document.getElementById('posts-container');
+    
+    // Mostrar loader esqueleto antes de cargar
     renderSkeletonLoader(postsContainer);
 
     try {
@@ -136,20 +172,27 @@ async function loadFeed() {
     }
 }
 
+// Genera el HTML de una tarjeta de publicación
 function renderPostCard(post) {
     const card = document.createElement('article');
     card.className = 'post-card';
     card.id = `post-${post.id}`;
 
+    // Validar tipo de avatar
     const userAvatar = post.user_avatar || '🎧';
     
+    // Comprobar si el usuario actual sigue a este creador
     let followBtnHtml = '';
     if (AppState.currentUser && parseInt(post.user_id) !== parseInt(AppState.currentUser.id)) {
+        // En un escenario real verificaríamos si lo sigue, por ahora mostramos un botón rápido
         followBtnHtml = `<button class="follow-badge-btn" onclick="handleQuickFollow(event, ${post.user_id})">+ Seguir</button>`;
     }
 
+    // Estilo especial para la tarjeta de música de Spotify
     let musicCardHtml = '';
     const iconType = post.spotify_type === 'playlist' ? 'fa-music' : (post.spotify_type === 'album' ? 'fa-record-vinyl' : 'fa-compact-disc');
+    
+    // Título descriptivo para la música
     const musicTitle = post.spotify_type.charAt(0).toUpperCase() + post.spotify_type.slice(1);
     
     musicCardHtml = `
@@ -175,6 +218,7 @@ function renderPostCard(post) {
         </div>
     `;
 
+    // Validar si el usuario actual ya le dio like
     const likeActive = parseInt(post.user_liked) > 0 ? 'active' : '';
 
     card.innerHTML = `
@@ -214,6 +258,10 @@ function renderPostCard(post) {
     return card;
 }
 
+// ==========================================
+// 4. INTERACCIONES SOCIALES (LIKES, COMMENTS, FOLLOWS)
+// ==========================================
+
 async function handleLikeToggle(event, postId) {
     event.stopPropagation();
     
@@ -245,6 +293,8 @@ async function handleLikeToggle(event, postId) {
                 likeBtn.classList.remove('active');
             }
             countSpan.textContent = result.data.likes_count;
+            
+            // Actualizar ranking en sidebar lateral
             loadRankings();
         } else {
             showToast(result.message, 'error');
@@ -276,9 +326,12 @@ async function handleQuickFollow(event, targetUserId) {
 
         if (result.success) {
             showToast(result.message, 'success');
+            
+            // Si estamos viendo el perfil de ese usuario, actualizamos las estadísticas
             if (AppState.currentView === 'profile' && parseInt(AppState.selectedProfileId) === parseInt(targetUserId)) {
                 loadProfileData(targetUserId);
             }
+            // Recargar feeds para ocultar/cambiar estado visual
             loadFeed();
         } else {
             showToast(result.message, 'error');
@@ -291,6 +344,10 @@ async function handleQuickFollow(event, targetUserId) {
 function handleViewProfile(userId) {
     switchView('profile', userId);
 }
+
+// ==========================================
+// 5. MODAL DE COMENTARIOS (AJAX DETALLADO)
+// ==========================================
 
 let activeCommentPostId = null;
 
@@ -306,13 +363,16 @@ async function openCommentsModal(postId) {
     commentsList.innerHTML = '<div class="skeleton-list-item"></div>';
 
     try {
+        // 1. Obtener la publicación completa para la vista previa izquierda
         const postResponse = await fetch(`api.php?action=get_posts`);
         const postResult = await postResponse.json();
         
         if (postResult.success && postResult.data) {
             const currentPost = postResult.data.find(p => parseInt(p.id) === parseInt(postId));
             if (currentPost) {
+                // Renders post card inside modal, pero removemos botones redundantes
                 const tempCard = renderPostCard(currentPost);
+                // Quitar botón de comentarios interno del modal
                 const commentBtn = tempCard.querySelector('.btn-comment');
                 if (commentBtn) commentBtn.style.pointerEvents = 'none';
                 
@@ -321,8 +381,10 @@ async function openCommentsModal(postId) {
             }
         }
 
+        // 2. Obtener y renderizar los comentarios a la derecha
         loadCommentsForPost(postId);
 
+        // 3. Renderizar formulario según sesión
         if (AppState.currentUser) {
             formArea.innerHTML = `
                 <input type="text" id="comment-text-input" placeholder="Escribe tu chisme o respuesta sobre esta música..." autocomplete="off">
@@ -331,6 +393,7 @@ async function openCommentsModal(postId) {
                 </button>
             `;
             
+            // Permitir enviar con Enter
             document.getElementById('comment-text-input').addEventListener('keypress', (e) => {
                 if (e.key === 'Enter') {
                     submitComment(postId);
@@ -339,7 +402,7 @@ async function openCommentsModal(postId) {
         } else {
             formArea.innerHTML = `
                 <div style="text-align: center; width:100%; color: var(--text-muted); font-size: 0.85rem; padding: 10px;">
-                    Debes <span class="setup-link" style="cursor:pointer;" onclick="openModal('modal-auth')">iniciar sesión</span> para unirte al chisme musical.
+                    Deber <span class="setup-link" style="cursor:pointer;" onclick="openModal('modal-auth')">iniciar sesión</span> para unirte al chisme musical.
                 </div>
             `;
         }
@@ -374,6 +437,8 @@ async function loadCommentsForPost(postId) {
                 `;
                 commentsList.appendChild(commentItem);
             });
+            
+            // Desplazar al fondo del contenedor de comentarios
             commentsList.scrollTop = commentsList.scrollHeight;
         } else {
             commentsList.innerHTML = `
@@ -415,8 +480,14 @@ async function submitComment(postId) {
         if (result.success) {
             input.value = '';
             showToast('¡Comentario publicado!', 'success');
+            
+            // Recargar comentarios del modal
             loadCommentsForPost(postId);
+            
+            // Recargar feeds en el fondo para actualizar contadores de comentarios
             loadFeed();
+            
+            // Si estamos en perfil, actualizar también
             if (AppState.currentView === 'profile') {
                 loadProfileData(AppState.selectedProfileId);
             }
@@ -428,6 +499,10 @@ async function submitComment(postId) {
     }
 }
 
+// ==========================================
+// 6. PERFIL DE USUARIO Y CONFIGURACIÓN (AJAX)
+// ==========================================
+
 async function loadProfileData(userId) {
     try {
         const response = await fetch(`api.php?action=get_profile&user_id=${userId}`);
@@ -437,22 +512,29 @@ async function loadProfileData(userId) {
             const profile = result.data;
             const user = profile.user;
 
+            // Renderizar datos del perfil
             document.getElementById('profile-avatar').textContent = user.avatar || '🎧';
             document.getElementById('profile-username').textContent = user.username;
             document.getElementById('profile-joined').textContent = `Miembro desde: ${formatDate(user.created_at)}`;
             document.getElementById('profile-bio').textContent = user.bio || 'Este usuario es un DJ silencioso sin biografía.';
             
+            // Stats
             document.getElementById('profile-followers-count').textContent = profile.followers_count;
             document.getElementById('profile-following-count').textContent = profile.following_count;
+            
+            // Nombre de sección de posts
             document.getElementById('profile-posts-user').textContent = user.username;
 
+            // Configurar botones de acciones
             const followBtn = document.getElementById('profile-follow-btn');
             const logoutBtn = document.getElementById('profile-logout-btn');
 
             if (AppState.currentUser && parseInt(AppState.currentUser.id) === parseInt(user.id)) {
+                // Perfil propio
                 followBtn.style.display = 'none';
                 logoutBtn.style.display = 'inline-flex';
             } else {
+                // Perfil ajeno
                 logoutBtn.style.display = 'none';
                 followBtn.style.display = 'inline-flex';
 
@@ -464,6 +546,7 @@ async function loadProfileData(userId) {
                     followBtn.innerHTML = '<i class="fa-solid fa-user-plus"></i> Seguir';
                 }
 
+                // Reinventar click handler de follow en perfil
                 followBtn.onclick = async () => {
                     if (!AppState.currentUser) {
                         showToast('Inicia sesión para seguir usuarios.', 'info');
@@ -489,6 +572,7 @@ async function loadProfileData(userId) {
                 };
             }
 
+            // Cargar posts del usuario en el sub-feed
             loadUserPosts(user.id);
         }
     } catch (error) {
@@ -506,7 +590,10 @@ async function loadUserPosts(userId) {
 
         if (result.success && result.data && result.data.length > 0) {
             container.innerHTML = '';
+            
+            // Actualizar contador del perfil
             document.getElementById('profile-posts-count').textContent = result.data.length;
+            
             result.data.forEach(post => {
                 container.appendChild(renderPostCard(post));
             });
@@ -526,14 +613,22 @@ async function loadUserPosts(userId) {
     }
 }
 
+// ==========================================
+// 7. REPRODUCTOR INTEGRADO DE SPOTIFY
+// ==========================================
+
 function playMusic(spotifyId, type, title, category) {
     const playerBar = document.getElementById('floating-player');
     const embedWrapper = document.getElementById('player-embed-wrapper');
     const waves = document.getElementById('audio-waves-visualizer');
     
+    // Títulos de visualización
     document.getElementById('player-title').textContent = title;
     document.getElementById('player-category').textContent = `#${category}`;
     
+    // Generar el Iframe oficial de Spotify
+    // Tipo: track, playlist, album
+    // URL: https://open.spotify.com/embed/{type}/{id}?utm_source=generator&theme=0 (theme 0 es tema oscuro)
     embedWrapper.innerHTML = `
         <iframe style="border-radius:12px" 
                 src="https://open.spotify.com/embed/${type}/${spotifyId}?utm_source=generator&theme=0" 
@@ -546,11 +641,16 @@ function playMusic(spotifyId, type, title, category) {
         </iframe>
     `;
 
+    // Hacer visible el reproductor con animación
     playerBar.style.display = 'flex';
     waves.style.display = 'flex';
     
     showToast(`Reproduciendo chisme de canal #${category} 🎧`, 'info');
 }
+
+// ==========================================
+// 8. TENDENCIAS Y RANKINGS (LATERALES)
+// ==========================================
 
 async function loadRankings() {
     const container = document.getElementById('rankings-container');
@@ -601,6 +701,7 @@ async function loadTrends() {
                 btn.className = 'trend-tag-btn';
                 btn.innerHTML = `#${escapeHTML(trend.name)} <span style="font-weight:400; opacity:0.65;">(${trend.posts_count})</span>`;
                 btn.addEventListener('click', () => {
+                    // Filtrar por esta categoría
                     selectCategory(trend.name);
                 });
                 container.appendChild(btn);
@@ -611,9 +712,11 @@ async function loadTrends() {
     }
 }
 
+// Filtro de categorías rápido
 function selectCategory(categoryName) {
     AppState.currentCategory = categoryName;
 
+    // Cambiar clases activas en sidebar
     const pills = document.querySelectorAll('.category-pill');
     pills.forEach(pill => {
         if (pill.getAttribute('data-category') === categoryName) {
@@ -623,15 +726,21 @@ function selectCategory(categoryName) {
         }
     });
 
+    // Actualizar título del feed central
     const feedTitle = document.getElementById('feed-title');
     feedTitle.textContent = categoryName ? `Canal #${categoryName}` : 'Explorar Chismes';
 
+    // Regresar al feed si estamos en perfil
     if (AppState.currentView !== 'feed') {
         switchView('feed');
     } else {
         loadFeed();
     }
 }
+
+// ==========================================
+// 9. FORMULARIOS DE REGISTRO / LOGIN / POSTS
+// ==========================================
 
 async function handleLoginSubmit(event) {
     event.preventDefault();
@@ -659,6 +768,7 @@ async function handleLoginSubmit(event) {
             passwordInput.value = '';
             closeModal('modal-auth');
             
+            // Recargar estado
             await fetchSession();
             loadFeed();
             loadRankings();
@@ -705,6 +815,7 @@ async function handleRegisterSubmit(event) {
             bioInput.value = '';
             closeModal('modal-auth');
             
+            // Recargar estado
             await fetchSession();
             loadFeed();
         } else {
@@ -746,6 +857,7 @@ async function handleCreatePostSubmit(event) {
         if (result.success) {
             showToast(result.message, 'success');
             
+            // Limpiar formulario
             spotifyUrlInput.value = '';
             titleInput.value = '';
             chismeInput.value = '';
@@ -753,6 +865,7 @@ async function handleCreatePostSubmit(event) {
             
             closeModal('modal-create-post');
             
+            // Forzar volver al feed de "Todos" recientes para ver la publicación
             AppState.currentCategory = '';
             selectCategory('');
             switchView('feed');
@@ -770,7 +883,12 @@ async function handleCreatePostSubmit(event) {
     }
 }
 
+// ==========================================
+// 10. VINDO DE EVENTOS Y EFECTOS UI
+// ==========================================
+
 function bindEventEvents() {
+    // Logo Click -> Vuelve al inicio
     document.getElementById('nav-home-logo').addEventListener('click', () => {
         AppState.currentCategory = '';
         AppState.currentSearch = '';
@@ -780,6 +898,7 @@ function bindEventEvents() {
         switchView('feed');
     });
 
+    // Botones de Navegación Lateral
     document.getElementById('btn-nav-feed').addEventListener('click', () => {
         AppState.currentFilter = 'recent';
         document.getElementById('tab-recent').classList.add('active');
@@ -809,6 +928,7 @@ function bindEventEvents() {
         }
     });
 
+    // Feed Tabs (Reciente vs Más Votados)
     document.getElementById('tab-recent').addEventListener('click', (e) => {
         AppState.currentFilter = 'recent';
         e.target.classList.add('active');
@@ -823,6 +943,7 @@ function bindEventEvents() {
         loadFeed();
     });
 
+    // Filtros de Categorías
     const categoryButtons = document.querySelectorAll('.category-pill');
     categoryButtons.forEach(btn => {
         btn.addEventListener('click', (e) => {
@@ -831,6 +952,7 @@ function bindEventEvents() {
         });
     });
 
+    // Buscador en tiempo real con Debounce (300ms)
     const searchInput = document.getElementById('search-input');
     const clearSearchBtn = document.getElementById('search-clear-btn');
     
@@ -857,28 +979,32 @@ function bindEventEvents() {
         loadFeed();
     });
 
+    // Modales Cierres
     document.getElementById('btn-close-modal-auth').addEventListener('click', () => closeModal('modal-auth'));
     document.getElementById('btn-close-modal-create').addEventListener('click', () => closeModal('modal-create-post'));
     document.getElementById('btn-close-modal-comments').addEventListener('click', () => closeModal('modal-comments'));
 
-    document.getElementById('tab-login-btn').addEventListener('click', () => {
+    // Pestañas del Modal Auth (Login vs Registro)
+    document.getElementById('tab-login-btn').addEventListener('click', (e) => {
         document.getElementById('tab-login-btn').classList.add('active');
         document.getElementById('tab-register-btn').classList.remove('active');
         document.getElementById('form-login').classList.add('active');
         document.getElementById('form-register').classList.remove('active');
     });
 
-    document.getElementById('tab-register-btn').addEventListener('click', () => {
+    document.getElementById('tab-register-btn').addEventListener('click', (e) => {
         document.getElementById('tab-register-btn').classList.add('active');
         document.getElementById('tab-login-btn').classList.remove('active');
         document.getElementById('form-register').classList.add('active');
         document.getElementById('form-login').classList.remove('active');
     });
 
+    // Envíos de Formularios
     document.getElementById('form-login').addEventListener('submit', handleLoginSubmit);
     document.getElementById('form-register').addEventListener('submit', handleRegisterSubmit);
     document.getElementById('form-create-post').addEventListener('submit', handleCreatePostSubmit);
 
+    // Logout en perfil
     document.getElementById('profile-logout-btn').addEventListener('click', async () => {
         try {
             const response = await fetch('api.php?action=logout');
@@ -893,53 +1019,81 @@ function bindEventEvents() {
         }
     });
 
+    // Contador de Caracteres en el Textarea del Chisme
     const chismeTextarea = document.getElementById('post-chisme');
     chismeTextarea.addEventListener('input', (e) => {
         const len = e.target.value.length;
         document.getElementById('chisme-char-count').textContent = len;
     });
 
+    // Reproductor - Cerrar
     document.getElementById('btn-close-player').addEventListener('click', () => {
         const playerBar = document.getElementById('floating-player');
         const embedWrapper = document.getElementById('player-embed-wrapper');
+        
         embedWrapper.innerHTML = '';
         playerBar.style.display = 'none';
     });
 
-    const overlays = document.querySelectorAll('.modal-overlay');
-    overlays.forEach(overlay => {
-        overlay.addEventListener('click', (e) => {
-            if (e.target === overlay) {
-                closeModal(overlay.id);
-            }
+    // Limpiar errores cuando los modales de Bootstrap se ocultan
+    const modalAuth = document.getElementById('modal-auth');
+    if (modalAuth) {
+        modalAuth.addEventListener('hidden.bs-modal', () => {
+            const authError = document.getElementById('auth-error-msg');
+            if (authError) authError.style.display = 'none';
         });
-    });
+    }
+    const modalCreatePost = document.getElementById('modal-create-post');
+    if (modalCreatePost) {
+        modalCreatePost.addEventListener('hidden.bs-modal', () => {
+            const postError = document.getElementById('post-error-msg');
+            if (postError) postError.style.display = 'none';
+        });
+    }
 }
 
+// ==========================================
+// 11. HELPERS Y FUNCIONES DE SOPORTE (UI)
+// ==========================================
+
 function openModal(modalId) {
-    document.getElementById(modalId).classList.add('active');
+    const modalEl = document.getElementById(modalId);
+    if (modalEl) {
+        const bsModal = bootstrap.Modal.getOrCreateInstance(modalEl);
+        bsModal.show();
+    }
 }
 
 function closeModal(modalId) {
-    document.getElementById(modalId).classList.remove('active');
-    if (modalId === 'modal-auth') {
-        document.getElementById('auth-error-msg').style.display = 'none';
-    }
-    if (modalId === 'modal-create-post') {
-        document.getElementById('post-error-msg').style.display = 'none';
+    const modalEl = document.getElementById(modalId);
+    if (modalEl) {
+        const bsModal = bootstrap.Modal.getInstance(modalEl);
+        if (bsModal) {
+            bsModal.hide();
+        }
     }
 }
 
 function showToast(message, type = 'success') {
-    const toast = document.getElementById('toast-notify');
-    toast.textContent = message;
-    toast.className = 'toast-notification';
-    toast.classList.add(type);
-    toast.classList.add('active');
+    const toastEl = document.getElementById('toast-notify');
+    if (!toastEl) return;
     
-    setTimeout(() => {
-        toast.classList.remove('active');
-    }, 3500);
+    const bodyText = document.getElementById('toast-body-text');
+    if (bodyText) bodyText.textContent = message;
+    
+    // Limpiar clases de color de Bootstrap
+    toastEl.classList.remove('bg-success', 'bg-danger', 'bg-info', 'text-white');
+    
+    if (type === 'success') {
+        toastEl.classList.add('bg-success', 'text-white');
+    } else if (type === 'error') {
+        toastEl.classList.add('bg-danger', 'text-white');
+    } else {
+        toastEl.classList.add('bg-info', 'text-white');
+    }
+    
+    const bsToast = bootstrap.Toast.getOrCreateInstance(toastEl, { delay: 3500 });
+    bsToast.show();
 }
 
 function renderSkeletonLoader(container) {
@@ -965,13 +1119,16 @@ function renderSkeletonLoader(container) {
     `;
 }
 
+// Formatear fecha legible
 function formatDate(dateString) {
     if (!dateString) return '';
     const date = new Date(dateString.replace(/-/g, "/"));
+    
     const options = { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' };
     return date.toLocaleDateString('es-ES', options);
 }
 
+// Escapar HTML para prevenir XSS
 function escapeHTML(str) {
     if (!str) return '';
     return str.replace(/[&<>'"]/g, 
@@ -987,6 +1144,8 @@ function escapeHTML(str) {
 
 function handleSharePost(title, postId) {
     const shareUrl = window.location.origin + window.location.pathname + `?post=${postId}`;
+    
+    // Copiar al portapapeles
     navigator.clipboard.writeText(shareUrl).then(() => {
         showToast('¡Enlace de chisme copiado al portapapeles! 📋🔗', 'success');
     }).catch(err => {

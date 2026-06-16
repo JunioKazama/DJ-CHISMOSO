@@ -1035,15 +1035,21 @@ function bindEventEvents() {
         playerBar.style.display = 'none';
     });
 
-    // Cerrar modales haciendo clic fuera del modal-card
-    const overlays = document.querySelectorAll('.modal-overlay');
-    overlays.forEach(overlay => {
-        overlay.addEventListener('click', (e) => {
-            if (e.target === overlay) {
-                closeModal(overlay.id);
-            }
+    // Limpiar errores cuando los modales de Bootstrap se ocultan
+    const modalAuth = document.getElementById('modal-auth');
+    if (modalAuth) {
+        modalAuth.addEventListener('hidden.bs-modal', () => {
+            const authError = document.getElementById('auth-error-msg');
+            if (authError) authError.style.display = 'none';
         });
-    });
+    }
+    const modalCreatePost = document.getElementById('modal-create-post');
+    if (modalCreatePost) {
+        modalCreatePost.addEventListener('hidden.bs-modal', () => {
+            const postError = document.getElementById('post-error-msg');
+            if (postError) postError.style.display = 'none';
+        });
+    }
 }
 
 // ==========================================
@@ -1051,34 +1057,43 @@ function bindEventEvents() {
 // ==========================================
 
 function openModal(modalId) {
-    document.getElementById(modalId).classList.add('active');
+    const modalEl = document.getElementById(modalId);
+    if (modalEl) {
+        const bsModal = bootstrap.Modal.getOrCreateInstance(modalEl);
+        bsModal.show();
+    }
 }
 
 function closeModal(modalId) {
-    document.getElementById(modalId).classList.remove('active');
-    
-    // Si se cierra el de auth, limpiar mensajes de error
-    if (modalId === 'modal-auth') {
-        document.getElementById('auth-error-msg').style.display = 'none';
-    }
-    // Si se cierra el de posts, limpiar errores
-    if (modalId === 'modal-create-post') {
-        document.getElementById('post-error-msg').style.display = 'none';
+    const modalEl = document.getElementById(modalId);
+    if (modalEl) {
+        const bsModal = bootstrap.Modal.getInstance(modalEl);
+        if (bsModal) {
+            bsModal.hide();
+        }
     }
 }
 
 function showToast(message, type = 'success') {
-    const toast = document.getElementById('toast-notify');
-    toast.textContent = message;
+    const toastEl = document.getElementById('toast-notify');
+    if (!toastEl) return;
     
-    // Limpiar clases previas
-    toast.className = 'toast-notification';
-    toast.classList.add(type);
-    toast.classList.add('active');
+    const bodyText = document.getElementById('toast-body-text');
+    if (bodyText) bodyText.textContent = message;
     
-    setTimeout(() => {
-        toast.classList.remove('active');
-    }, 3500);
+    // Limpiar clases de color de Bootstrap
+    toastEl.classList.remove('bg-success', 'bg-danger', 'bg-info', 'text-white');
+    
+    if (type === 'success') {
+        toastEl.classList.add('bg-success', 'text-white');
+    } else if (type === 'error') {
+        toastEl.classList.add('bg-danger', 'text-white');
+    } else {
+        toastEl.classList.add('bg-info', 'text-white');
+    }
+    
+    const bsToast = bootstrap.Toast.getOrCreateInstance(toastEl, { delay: 3500 });
+    bsToast.show();
 }
 
 function renderSkeletonLoader(container) {

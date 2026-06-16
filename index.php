@@ -21,6 +21,9 @@ require_once 'config.php';
     <!-- Iconos de FontAwesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
+
     <!-- Estilos CSS personalizados -->
     <link rel="stylesheet" href="styles.css">
 </head>
@@ -279,131 +282,143 @@ require_once 'config.php';
          ========================================== -->
 
     <!-- Modal 1: Login / Registro (Auth) -->
-    <div class="modal-overlay" id="modal-auth">
-        <div class="modal-card">
-            <button class="modal-close" id="btn-close-modal-auth"><i class="fa-solid fa-xmark"></i></button>
-            
-            <div class="auth-tabs">
-                <button class="auth-tab active" id="tab-login-btn">Iniciar Sesión</button>
-                <button class="auth-tab" id="tab-register-btn">Registrarse</button>
-            </div>
-
-            <!-- Formulario de Login -->
-            <form id="form-login" class="auth-form active">
-                <div class="form-group">
-                    <label for="login-username">Usuario</label>
-                    <input type="text" id="login-username" required placeholder="Ingresa tu usuario...">
-                </div>
-                <div class="form-group">
-                    <label for="login-password">Contraseña</label>
-                    <input type="password" id="login-password" required placeholder="Ingresa tu contraseña...">
-                </div>
-                <button type="submit" class="btn btn-primary btn-block">Entrar al Club 🎧</button>
-            </form>
-
-            <!-- Formulario de Registro -->
-            <form id="form-register" class="auth-form">
-                <div class="form-group">
-                    <label for="register-username">Nombre de Usuario</label>
-                    <input type="text" id="register-username" required placeholder="Min. 3 caracteres..." maxlength="20">
-                </div>
-                <div class="form-group">
-                    <label for="register-password">Contraseña</label>
-                    <input type="password" id="register-password" required placeholder="Min. 6 caracteres...">
-                </div>
-                <div class="form-group">
-                    <label>Elige tu Avatar (Emoji)</label>
-                    <div class="avatar-selector">
-                        <label class="avatar-option"><input type="radio" name="avatar" value="🎧" checked><span>🎧</span></label>
-                        <label class="avatar-option"><input type="radio" name="avatar" value="🎸"><span>🎸</span></label>
-                        <label class="avatar-option"><input type="radio" name="avatar" value="🌸"><span>🌸</span></label>
-                        <label class="avatar-option"><input type="radio" name="avatar" value="☕"><span>☕</span></label>
-                        <label class="avatar-option"><input type="radio" name="avatar" value="⚡"><span>⚡</span></label>
-                        <label class="avatar-option"><input type="radio" name="avatar" value="🐱"><span>🐱</span></label>
-                        <label class="avatar-option"><input type="radio" name="avatar" value="👾"><span>👾</span></label>
-                        <label class="avatar-option"><input type="radio" name="avatar" value="🔥"><span>🔥</span></label>
+    <div class="modal fade" id="modal-auth" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content bs-modal-content">
+                <div class="modal-body p-4 position-relative">
+                    <button type="button" class="btn-close btn-close-white position-absolute" style="top: 20px; right: 20px; z-index: 10;" data-bs-dismiss="modal" aria-label="Close" id="btn-close-modal-auth"></button>
+                    
+                    <div class="auth-tabs mt-2">
+                        <button class="auth-tab active" id="tab-login-btn">Iniciar Sesión</button>
+                        <button class="auth-tab" id="tab-register-btn">Registrarse</button>
                     </div>
+
+                    <!-- Formulario de Login -->
+                    <form id="form-login" class="auth-form active">
+                        <div class="mb-3">
+                            <label for="login-username" class="form-label text-secondary text-uppercase fw-bold" style="font-size: 0.85rem; letter-spacing: 0.5px;">Usuario</label>
+                            <input type="text" id="login-username" class="form-control bs-input" required placeholder="Ingresa tu usuario...">
+                        </div>
+                        <div class="mb-3">
+                            <label for="login-password" class="form-label text-secondary text-uppercase fw-bold" style="font-size: 0.85rem; letter-spacing: 0.5px;">Contraseña</label>
+                            <input type="password" id="login-password" class="form-control bs-input" required placeholder="Ingresa tu contraseña...">
+                        </div>
+                        <button type="submit" class="btn btn-primary w-100 py-2 fw-bold">Entrar al Club 🎧</button>
+                    </form>
+
+                    <!-- Formulario de Registro -->
+                    <form id="form-register" class="auth-form">
+                        <div class="mb-3">
+                            <label for="register-username" class="form-label text-secondary text-uppercase fw-bold" style="font-size: 0.85rem; letter-spacing: 0.5px;">Nombre de Usuario</label>
+                            <input type="text" id="register-username" class="form-control bs-input" required placeholder="Min. 3 caracteres..." maxlength="20">
+                        </div>
+                        <div class="mb-3">
+                            <label for="register-password" class="form-label text-secondary text-uppercase fw-bold" style="font-size: 0.85rem; letter-spacing: 0.5px;">Contraseña</label>
+                            <input type="password" id="register-password" class="form-control bs-input" required placeholder="Min. 6 caracteres...">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label text-secondary text-uppercase fw-bold" style="font-size: 0.85rem; letter-spacing: 0.5px;">Elige tu Avatar (Emoji)</label>
+                            <div class="avatar-selector">
+                                <label class="avatar-option"><input type="radio" name="avatar" value="🎧" checked><span>🎧</span></label>
+                                <label class="avatar-option"><input type="radio" name="avatar" value="🎸"><span>🎸</span></label>
+                                <label class="avatar-option"><input type="radio" name="avatar" value="🌸"><span>🌸</span></label>
+                                <label class="avatar-option"><input type="radio" name="avatar" value="☕"><span>☕</span></label>
+                                <label class="avatar-option"><input type="radio" name="avatar" value="⚡"><span>⚡</span></label>
+                                <label class="avatar-option"><input type="radio" name="avatar" value="🐱"><span>🐱</span></label>
+                                <label class="avatar-option"><input type="radio" name="avatar" value="👾"><span>👾</span></label>
+                                <label class="avatar-option"><input type="radio" name="avatar" value="🔥"><span>🔥</span></label>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label for="register-bio" class="form-label text-secondary text-uppercase fw-bold" style="font-size: 0.85rem; letter-spacing: 0.5px;">Biografía Musical (Chisme sobre ti)</label>
+                            <textarea id="register-bio" class="form-control bs-input" placeholder="¿Qué música escuchas? ¿Cuál es tu banda favorita?..." rows="3"></textarea>
+                        </div>
+                        <button type="submit" class="btn btn-primary w-100 py-2 fw-bold">Crear Cuenta 🔥</button>
+                    </form>
+                    
+                    <div id="auth-error-msg" class="error-msg mt-3" style="display: none;"></div>
                 </div>
-                <div class="form-group">
-                    <label for="register-bio">Biografía Musical (Chisme sobre ti)</label>
-                    <textarea id="register-bio" placeholder="¿Qué música escuchas? ¿Cuál es tu banda favorita?..." rows="3"></textarea>
-                </div>
-                <button type="submit" class="btn btn-primary btn-block">Crear Cuenta 🔥</button>
-            </form>
-            
-            <div id="auth-error-msg" class="error-msg" style="display: none;"></div>
+            </div>
         </div>
     </div>
 
     <!-- Modal 2: Crear Publicación (Crear Chisme) -->
-    <div class="modal-overlay" id="modal-create-post">
-        <div class="modal-card">
-            <button class="modal-close" id="btn-close-modal-create"><i class="fa-solid fa-xmark"></i></button>
-            <h2>Compartir nuevo Chisme Musical 🎧</h2>
-            <p style="color: var(--text-secondary); margin-bottom: 25px; font-size: 0.95rem;">Pega un enlace de Spotify y cuéntanos la historia detrás.</p>
-            
-            <form id="form-create-post">
-                <div class="form-group">
-                    <label for="post-spotify-url">Enlace de Spotify (Canción, Playlist o Álbum)</label>
-                    <div class="input-with-icon">
-                        <i class="fa-brands fa-spotify spotify-input-icon"></i>
-                        <input type="url" id="post-spotify-url" required placeholder="https://open.spotify.com/playlist/... o /track/..." autocomplete="off">
-                    </div>
-                    <span class="input-help">Puedes copiar el enlace de compartir directamente de la app de Spotify.</span>
-                </div>
+    <div class="modal fade" id="modal-create-post" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content bs-modal-content">
+                <div class="modal-body p-4 position-relative">
+                    <button type="button" class="btn-close btn-close-white position-absolute" style="top: 20px; right: 20px; z-index: 10;" data-bs-dismiss="modal" aria-label="Close" id="btn-close-modal-create"></button>
+                    <h2 class="mb-2">Compartir nuevo Chisme Musical 🎧</h2>
+                    <p class="text-secondary mb-4" style="font-size: 0.95rem;">Pega un enlace de Spotify y cuéntanos la historia detrás.</p>
+                    
+                    <form id="form-create-post">
+                        <div class="mb-3">
+                            <label for="post-spotify-url" class="form-label text-secondary text-uppercase fw-bold" style="font-size: 0.85rem; letter-spacing: 0.5px;">Enlace de Spotify (Canción, Playlist o Álbum)</label>
+                            <div class="input-group">
+                                <span class="input-group-text bg-transparent border-end-0 text-success"><i class="fa-brands fa-spotify spotify-input-icon"></i></span>
+                                <input type="url" id="post-spotify-url" class="form-control bs-input border-start-0" required placeholder="https://open.spotify.com/playlist/... o /track/..." autocomplete="off">
+                            </div>
+                            <div class="form-text text-muted mt-1" style="font-size: 0.8rem;">Puedes copiar el enlace de compartir directamente de la app de Spotify.</div>
+                        </div>
 
-                <div class="form-group">
-                    <label for="post-title">Título Llamativo</label>
-                    <input type="text" id="post-title" required placeholder="Ej: La playlist definitiva para llorar en la ducha..." maxlength="100">
-                </div>
+                        <div class="mb-3">
+                            <label for="post-title" class="form-label text-secondary text-uppercase fw-bold" style="font-size: 0.85rem; letter-spacing: 0.5px;">Título Llamativo</label>
+                            <input type="text" id="post-title" class="form-control bs-input" required placeholder="Ej: La playlist definitiva para llorar en la ducha..." maxlength="100">
+                        </div>
 
-                <div class="form-group">
-                    <label for="post-category">Categoría principal</label>
-                    <select id="post-category">
-                        <option value="Rock">Rock</option>
-                        <option value="Indie">Indie</option>
-                        <option value="Lo-fi">Lo-fi</option>
-                        <option value="Gym">Gym</option>
-                        <option value="Estudio">Estudio</option>
-                        <option value="Triste">Triste</option>
-                        <option value="Gaming">Gaming</option>
-                    </select>
-                </div>
+                        <div class="mb-3">
+                            <label for="post-category" class="form-label text-secondary text-uppercase fw-bold" style="font-size: 0.85rem; letter-spacing: 0.5px;">Categoría principal</label>
+                            <select id="post-category" class="form-select bs-input">
+                                <option value="Rock">Rock</option>
+                                <option value="Indie">Indie</option>
+                                <option value="Lo-fi">Lo-fi</option>
+                                <option value="Gym">Gym</option>
+                                <option value="Estudio">Estudio</option>
+                                <option value="Triste">Triste</option>
+                                <option value="Gaming">Gaming</option>
+                            </select>
+                        </div>
 
-                <div class="form-group">
-                    <label for="post-chisme">El "Chisme" (¿Por qué nos recomiendas esto? Cuenta tu historia)</label>
-                    <textarea id="post-chisme" required placeholder="Cuéntanos: ¿En qué momento la escuchas? ¿Cuál es tu chisme, historia o anécdota con este set musical?..." rows="5" maxlength="1500"></textarea>
-                    <div class="textarea-counter"><span id="chisme-char-count">0</span> / 1500</div>
-                </div>
+                        <div class="mb-3">
+                            <label for="post-chisme" class="form-label text-secondary text-uppercase fw-bold" style="font-size: 0.85rem; letter-spacing: 0.5px;">El "Chisme" (¿Por qué nos recomiendas esto? Cuenta tu historia)</label>
+                            <textarea id="post-chisme" class="form-control bs-input" required placeholder="Cuéntanos: ¿En qué momento la escuchas? ¿Cuál es tu chisme, historia o anécdota con este set musical?..." rows="5" maxlength="1500"></textarea>
+                            <div class="textarea-counter mt-1 text-end text-muted" style="font-size: 0.75rem;"><span id="chisme-char-count">0</span> / 1500</div>
+                        </div>
 
-                <div id="post-error-msg" class="error-msg" style="display: none;"></div>
-                <button type="submit" class="btn btn-primary btn-block">¡Publicar Chisme! 🚀</button>
-            </form>
+                        <div id="post-error-msg" class="error-msg mb-3" style="display: none;"></div>
+                        <button type="submit" class="btn btn-primary w-100 py-2 fw-bold">¡Publicar Chisme! 🚀</button>
+                    </form>
+                </div>
+            </div>
         </div>
     </div>
 
     <!-- Modal 3: Comentarios Detallados (Drawer/Modal) -->
-    <div class="modal-overlay" id="modal-comments">
-        <div class="modal-card comments-modal-card">
-            <button class="modal-close" id="btn-close-modal-comments"><i class="fa-solid fa-xmark"></i></button>
-            
-            <div class="comments-modal-layout">
-                <!-- Izquierda: Vista previa del Post -->
-                <div class="comments-post-preview" id="comments-post-preview-area">
-                    <!-- Post cargado dinámicamente -->
-                </div>
-                
-                <!-- Derecha: Listado de Comentarios -->
-                <div class="comments-section-area">
-                    <h3>Discusión sobre la música 💬</h3>
-                    <div class="comments-list-container" id="modal-comments-list">
-                        <!-- Comentarios dinámicos -->
-                    </div>
+    <div class="modal fade" id="modal-comments" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-xl">
+            <div class="modal-content bs-modal-content">
+                <div class="modal-body p-4 position-relative">
+                    <button type="button" class="btn-close btn-close-white position-absolute" style="top: 20px; right: 20px; z-index: 10;" data-bs-dismiss="modal" aria-label="Close" id="btn-close-modal-comments"></button>
                     
-                    <!-- Formulario para agregar comentario -->
-                    <div class="add-comment-wrapper">
-                        <div class="add-comment-input-row" id="comment-form-auth-check">
-                            <!-- Se poblará dinámicamente dependiendo de si está logueado -->
+                    <div class="comments-modal-layout mt-3">
+                        <!-- Izquierda: Vista previa del Post -->
+                        <div class="comments-post-preview" id="comments-post-preview-area">
+                            <!-- Post cargado dinámicamente -->
+                        </div>
+                        
+                        <!-- Derecha: Listado de Comentarios -->
+                        <div class="comments-section-area">
+                            <h3>Discusión sobre la música 💬</h3>
+                            <div class="comments-list-container" id="modal-comments-list">
+                                <!-- Comentarios dinámicos -->
+                            </div>
+                            
+                            <!-- Formulario para agregar comentario -->
+                            <div class="add-comment-wrapper">
+                                <div class="add-comment-input-row" id="comment-form-auth-check">
+                                    <!-- Se poblará dinámicamente dependiendo de si está logueado -->
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -412,7 +427,19 @@ require_once 'config.php';
     </div>
 
     <!-- Toast de Notificaciones Flotantes -->
-    <div class="toast-notification" id="toast-notify">¡Acción realizada!</div>
+    <div class="toast-container position-fixed bottom-0 end-0 p-3" style="z-index: 3000;">
+        <div id="toast-notify" class="toast align-items-center border-0 bg-dark text-white" role="alert" aria-live="assertive" aria-atomic="true">
+            <div class="d-flex">
+                <div class="toast-body" id="toast-body-text">
+                    ¡Acción realizada!
+                </div>
+                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bootstrap 5 JS Bundle -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
 
     <!-- Script Controlador principal -->
     <script src="app.js"></script>

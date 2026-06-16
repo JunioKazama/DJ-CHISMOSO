@@ -1,3 +1,8 @@
+/* ==========================================================================
+   DJ CHISMOSO - Estilos CSS Premium (Glassmorphism & Neon Dark Theme)
+   ========================================================================== */
+
+/* --- 1. VARIABLES DEL SISTEMA DE DISEÑO --- */
 :root {
     --bg-dark: #060609;
     --bg-app: #08080c;
@@ -6,6 +11,7 @@
     --card-border: rgba(255, 255, 255, 0.05);
     --card-border-glow: rgba(30, 215, 96, 0.3);
     
+    /* Colores de acento */
     --spotify-green: #1db954;
     --spotify-green-hover: #1ed760;
     --discord-violet: #5865F2;
@@ -14,16 +20,19 @@
     --chisme-pink-hover: #fb7185;
     --accent-orange: #ff9f1c;
     
+    /* Tipografía y Textos */
     --font-titles: 'Outfit', sans-serif;
     --font-body: 'Plus Jakarta Sans', sans-serif;
     --text-primary: #f8fafc;
     --text-secondary: #94a3b8;
     --text-muted: #64748b;
     
+    /* Transiciones */
     --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     --transition-bounce: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
 
+/* --- 2. RESET GLOBAL & SCROLLBAR --- */
 * {
     box-sizing: border-box;
     margin: 0;
@@ -38,6 +47,7 @@ body {
     overflow-x: hidden;
 }
 
+/* Scrollbars personalizadas estilo Spotify */
 ::-webkit-scrollbar {
     width: 8px;
     height: 8px;
@@ -53,6 +63,7 @@ body {
     background: rgba(255, 255, 255, 0.2);
 }
 
+/* --- 3. AMBIENT GLOWING ORBS (EFECTO ESPACIAL) --- */
 .glow-orb {
     position: fixed;
     border-radius: 50%;
@@ -92,6 +103,7 @@ body {
     100% { transform: translate(80px, 50px) scale(1.15); }
 }
 
+/* --- 4. MAQUETACIÓN ESTRUCTURAL --- */
 .app-container {
     display: flex;
     flex-direction: column;
@@ -101,6 +113,7 @@ body {
     position: relative;
 }
 
+/* --- HEADER PRINCIPAL --- */
 .app-header {
     height: 75px;
     display: flex;
@@ -148,6 +161,7 @@ body {
     50% { transform: scale(1.08) rotate(5deg); }
 }
 
+/* Buscador */
 .search-bar-container {
     width: 450px;
     position: relative;
@@ -192,6 +206,7 @@ body {
     color: var(--text-primary);
 }
 
+/* Area de Usuario Logueado en Header */
 .user-menu-header {
     display: flex;
     align-items: center;
@@ -224,6 +239,7 @@ body {
     color: var(--text-primary);
 }
 
+/* --- CUERPO EN TRES COLUMNAS --- */
 .main-layout {
     display: flex;
     flex: 1;
@@ -231,6 +247,7 @@ body {
     position: relative;
 }
 
+/* --- COLUMNA 1: SIDEBAR IZQUIERDO --- */
 .sidebar-left {
     width: 280px;
     flex-shrink: 0;
@@ -352,6 +369,7 @@ body {
     text-shadow: 0 0 8px rgba(244, 63, 94, 0.3);
 }
 
+/* --- COLUMNA 2: ÁREA DE CONTENIDO CENTRAL --- */
 .content-area {
     flex: 1;
     min-width: 0;
@@ -408,11 +426,12 @@ body {
     box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
 }
 
+/* --- POST CARDS (TARJETAS DE PUBLICACIÓN) --- */
 .posts-feed {
     display: flex;
     flex-direction: column;
     gap: 24px;
-    margin-bottom: 100px;
+    margin-bottom: 100px; /* Margen para no tapar con el reproductor */
 }
 
 .post-card {
@@ -433,6 +452,7 @@ body {
     box-shadow: 0 15px 40px rgba(0, 0, 0, 0.35);
 }
 
+/* Indicador de categoría en tarjeta */
 .post-category-tag {
     position: absolute;
     top: 24px;
@@ -448,6 +468,7 @@ body {
     letter-spacing: 0.5px;
 }
 
+/* Cabecera del Post */
 .post-creator-info {
     display: flex;
     align-items: center;
@@ -493,6 +514,7 @@ body {
     color: var(--text-muted);
 }
 
+/* Botón seguir en posts */
 .follow-badge-btn {
     background: none;
     border: none;
@@ -509,6 +531,7 @@ body {
     color: var(--discord-violet-hover);
 }
 
+/* Contenido de texto */
 .post-title {
     font-family: var(--font-titles);
     font-size: 1.25rem;
@@ -525,6 +548,7 @@ body {
     white-space: pre-line;
 }
 
+/* Tarjeta de Música de Spotify */
 .post-music-card {
     background: rgba(0, 0, 0, 0.25);
     border: 1px solid rgba(255, 255, 255, 0.04);
@@ -590,6 +614,7 @@ body {
     letter-spacing: 0.5px;
 }
 
+/* Botones de acción en la tarjeta musical */
 .music-card-actions {
     display: flex;
     gap: 10px;
@@ -635,6 +660,7 @@ body {
     color: var(--spotify-green);
 }
 
+/* Barra de interacción del post */
 .post-action-bar {
     display: flex;
     align-items: center;
@@ -662,6 +688,7 @@ body {
     background: rgba(255, 255, 255, 0.03);
 }
 
+/* Like activo */
 .action-btn.btn-like:hover {
     color: var(--chisme-pink);
     background: rgba(244, 63, 94, 0.08);
@@ -674,6 +701,7 @@ body {
     font-weight: 900;
 }
 
+/* Comentario interactivo */
 .action-btn.btn-comment:hover {
     color: var(--discord-violet);
     background: rgba(88, 101, 242, 0.08);
@@ -685,6 +713,7 @@ body {
     100% { transform: scale(1); }
 }
 
+/* --- COLUMNA 3: SIDEBAR DERECHO --- */
 .sidebar-right {
     width: 320px;
     flex-shrink: 0;
@@ -708,6 +737,7 @@ body {
     gap: 10px;
 }
 
+/* Panel de Rankings */
 .ranking-panel, .trending-panel, .active-users-panel {
     background: rgba(255, 255, 255, 0.02);
     border: 1px solid rgba(255, 255, 255, 0.03);
@@ -754,10 +784,6 @@ body {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    cursor: pointer;
-}
-.ranking-title:hover {
-    color: var(--chisme-pink);
 }
 .ranking-creator {
     font-size: 0.76rem;
@@ -772,6 +798,7 @@ body {
     gap: 4px;
 }
 
+/* Tendencias de Hashtags */
 .trending-tags {
     display: flex;
     flex-wrap: wrap;
@@ -794,6 +821,7 @@ body {
     color: var(--spotify-green-hover);
 }
 
+/* Usuarios Activos (Discord Style) */
 .active-users-list {
     display: flex;
     flex-direction: column;
@@ -844,10 +872,12 @@ body {
     text-overflow: ellipsis;
 }
 
+/* Colores de texto de iconos */
 .accent-green-text { color: var(--spotify-green); }
 .accent-pink-text { color: var(--chisme-pink); }
 .accent-purple-text { color: var(--discord-violet); }
 
+/* --- 5. PERFIL DE USUARIO EXTENDIDO --- */
 .profile-header-card {
     background: linear-gradient(135deg, rgba(88, 101, 242, 0.15) 0%, rgba(18, 18, 28, 0.7) 100%);
     backdrop-filter: blur(20px);
@@ -922,6 +952,7 @@ body {
     gap: 10px;
 }
 
+/* --- 6. PERSISTENT PLAYER BAR (REPRODUCTOR FLOTANTE INFERIOR) --- */
 .persistent-player-bar {
     position: fixed;
     bottom: 25px;
@@ -996,6 +1027,7 @@ body {
     height: 100%;
 }
 
+/* Contenedor del Iframe Embebido */
 .player-iframe-container {
     width: 100%;
     max-width: 480px;
@@ -1008,6 +1040,7 @@ body {
     border: none;
 }
 
+/* Espectro de Audio Animado */
 .audio-waves {
     display: flex;
     align-items: flex-end;
@@ -1054,6 +1087,7 @@ body {
     transform: scale(1.1);
 }
 
+/* --- 7. MODALES (VENTANAS EMERGENTES) --- */
 .modal-overlay {
     position: fixed;
     top: 0;
@@ -1120,6 +1154,7 @@ body {
     margin-bottom: 8px;
 }
 
+/* Modales Formularios */
 .form-group {
     margin-bottom: 20px;
     text-align: left;
@@ -1171,6 +1206,7 @@ body {
     margin-top: 6px;
 }
 
+/* Input con Icono */
 .input-with-icon {
     position: relative;
     display: flex;
@@ -1186,6 +1222,7 @@ body {
     padding-left: 45px;
 }
 
+/* Botones de Formularios */
 .btn {
     font-family: var(--font-titles);
     font-weight: 700;
@@ -1227,6 +1264,7 @@ body {
     color: #fff;
 }
 
+/* Pestañas de Autenticación */
 .auth-tabs {
     display: flex;
     border-bottom: 1px solid var(--card-border);
@@ -1268,6 +1306,7 @@ body {
     text-align: left;
 }
 
+/* Selector de Avatar */
 .avatar-selector {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
@@ -1304,6 +1343,7 @@ body {
     transform: scale(1.05);
 }
 
+/* --- MODAL COMENTARIOS COMPLETO (INTERFAZ EXCLUSIVA) --- */
 .comments-modal-card {
     max-width: 900px;
     width: 95%;
@@ -1378,10 +1418,6 @@ body {
     font-weight: 700;
     font-size: 0.85rem;
     color: var(--text-primary);
-    cursor: pointer;
-}
-.comment-user:hover {
-    color: var(--discord-violet);
 }
 .comment-time {
     font-size: 0.72rem;
@@ -1443,6 +1479,7 @@ body {
     padding: 30px 0;
 }
 
+/* --- TOAST NOTIFICATIONS --- */
 .toast-notification {
     position: fixed;
     bottom: 30px;
@@ -1470,6 +1507,7 @@ body {
 .toast-notification.error { border-color: var(--chisme-pink); }
 .toast-notification.info { border-color: var(--discord-violet); }
 
+/* --- 8. ELEMENTOS CARGADORES ESQUELETO --- */
 .skeleton {
     background: linear-gradient(90deg, rgba(255,255,255,0.03) 25%, rgba(255,255,255,0.08) 50%, rgba(255,255,255,0.03) 75%);
     background-size: 200% 100%;
@@ -1525,6 +1563,7 @@ body {
     animation: loadingSkeleton 1.5s infinite;
 }
 
+/* Mensajes de Feed vacío */
 .feed-empty-state {
     text-align: center;
     padding: 60px 20px;
@@ -1548,12 +1587,16 @@ body {
     color: var(--text-secondary);
 }
 
+/* --- 9. MEDIAS QUERY (DISEÑO RESPONSIVO) --- */
+
+/* Pantallas Medianas (Laptops / Tablets) */
 @media (max-width: 1200px) {
     .sidebar-right {
-        display: none;
+        display: none; /* Ocultar sidebar derecho en tablets */
     }
 }
 
+/* Pantallas Pequeñas (Móviles / Tablets vertical) */
 @media (max-width: 850px) {
     .app-container {
         height: auto;
@@ -1591,7 +1634,7 @@ body {
         white-space: nowrap;
     }
     .categories-section {
-        display: none;
+        display: none; /* Ocultar categorías fijas en móvil */
     }
     .content-area {
         padding: 15px;
@@ -1606,7 +1649,7 @@ body {
         height: 80px;
     }
     .player-left {
-        display: none;
+        display: none; /* Ocultar texto actual en móvil */
     }
     .player-center {
         width: 100%;
@@ -1632,7 +1675,7 @@ body {
 }
 @media (max-width: 480px) {
     .search-bar-container {
-        display: none;
+        display: none; /* Ocultar buscador del todo en móviles pequeños, enfocar en feed */
     }
     .logo-text {
         font-size: 1.3rem;
@@ -1660,3 +1703,101 @@ body {
         font-size: 0.8rem;
     }
 }
+
+/* ==========================================
+   INTEGRACIÓN CON BOOTSTRAP 5
+   ========================================== */
+.bs-modal-content {
+    background: rgba(18, 18, 28, 0.85) !important;
+    backdrop-filter: blur(20px) !important;
+    -webkit-backdrop-filter: blur(20px) !important;
+    border: 1px solid rgba(255, 255, 255, 0.08) !important;
+    border-radius: 24px !important;
+    box-shadow: 0 25px 50px rgba(0, 0, 0, 0.6), 0 0 30px rgba(88, 101, 242, 0.05) !important;
+    color: var(--text-primary) !important;
+}
+
+.bs-input {
+    background: rgba(255, 255, 255, 0.04) !important;
+    border: 1px solid var(--card-border) !important;
+    color: var(--text-primary) !important;
+    border-radius: 12px !important;
+    font-size: 0.94rem !important;
+    font-family: var(--font-body) !important;
+}
+
+.bs-input:focus {
+    background: rgba(255, 255, 255, 0.07) !important;
+    border-color: rgba(88, 101, 242, 0.5) !important;
+    box-shadow: 0 0 12px rgba(88, 101, 242, 0.2) !important;
+    color: var(--text-primary) !important;
+}
+
+.bs-input::placeholder {
+    color: var(--text-muted) !important;
+    opacity: 0.8;
+}
+
+.input-group .bs-input:focus {
+    z-index: 3 !important;
+}
+
+.input-group-text {
+    background: rgba(255, 255, 255, 0.02) !important;
+    border: 1px solid var(--card-border) !important;
+    color: var(--text-secondary) !important;
+    border-radius: 12px 0 0 12px !important;
+}
+
+/* Ajustes de botones de Bootstrap para alinearse con el tema */
+.btn-primary {
+    background: var(--discord-violet) !important;
+    border-color: var(--discord-violet) !important;
+    color: #ffffff !important;
+    transition: var(--transition-bounce) !important;
+}
+
+.btn-primary:hover, .btn-primary:focus {
+    background: var(--discord-violet-hover) !important;
+    border-color: var(--discord-violet-hover) !important;
+    transform: translateY(-2px);
+}
+
+.btn-close-white {
+    filter: invert(1) grayscale(1) brightness(2) !important;
+    opacity: 0.7;
+    transition: var(--transition-smooth) !important;
+}
+
+.btn-close-white:hover {
+    opacity: 1;
+}
+
+/* Ajuste de Toast de Bootstrap */
+.toast {
+    background: rgba(18, 18, 28, 0.9) !important;
+    backdrop-filter: blur(12px) !important;
+    border-radius: 12px !important;
+    box-shadow: 0 10px 35px rgba(0, 0, 0, 0.4) !important;
+    font-family: var(--font-titles) !important;
+    font-weight: 600 !important;
+}
+
+.toast.bg-success {
+    border-left: 4px solid var(--spotify-green) !important;
+}
+
+.toast.bg-danger {
+    border-left: 4px solid var(--chisme-pink) !important;
+}
+
+.toast.bg-info {
+    border-left: 4px solid var(--discord-violet) !important;
+}
+
+/* Ajuste de formulario select dropdown de Bootstrap */
+.form-select.bs-input option {
+    background-color: #12121c !important;
+    color: var(--text-primary) !important;
+}
+

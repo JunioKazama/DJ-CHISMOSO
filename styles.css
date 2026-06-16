@@ -1703,3 +1703,101 @@ body {
         font-size: 0.8rem;
     }
 }
+
+/* ==========================================
+   INTEGRACIÓN CON BOOTSTRAP 5
+   ========================================== */
+.bs-modal-content {
+    background: rgba(18, 18, 28, 0.85) !important;
+    backdrop-filter: blur(20px) !important;
+    -webkit-backdrop-filter: blur(20px) !important;
+    border: 1px solid rgba(255, 255, 255, 0.08) !important;
+    border-radius: 24px !important;
+    box-shadow: 0 25px 50px rgba(0, 0, 0, 0.6), 0 0 30px rgba(88, 101, 242, 0.05) !important;
+    color: var(--text-primary) !important;
+}
+
+.bs-input {
+    background: rgba(255, 255, 255, 0.04) !important;
+    border: 1px solid var(--card-border) !important;
+    color: var(--text-primary) !important;
+    border-radius: 12px !important;
+    font-size: 0.94rem !important;
+    font-family: var(--font-body) !important;
+}
+
+.bs-input:focus {
+    background: rgba(255, 255, 255, 0.07) !important;
+    border-color: rgba(88, 101, 242, 0.5) !important;
+    box-shadow: 0 0 12px rgba(88, 101, 242, 0.2) !important;
+    color: var(--text-primary) !important;
+}
+
+.bs-input::placeholder {
+    color: var(--text-muted) !important;
+    opacity: 0.8;
+}
+
+.input-group .bs-input:focus {
+    z-index: 3 !important;
+}
+
+.input-group-text {
+    background: rgba(255, 255, 255, 0.02) !important;
+    border: 1px solid var(--card-border) !important;
+    color: var(--text-secondary) !important;
+    border-radius: 12px 0 0 12px !important;
+}
+
+/* Ajustes de botones de Bootstrap para alinearse con el tema */
+.btn-primary {
+    background: var(--discord-violet) !important;
+    border-color: var(--discord-violet) !important;
+    color: #ffffff !important;
+    transition: var(--transition-bounce) !important;
+}
+
+.btn-primary:hover, .btn-primary:focus {
+    background: var(--discord-violet-hover) !important;
+    border-color: var(--discord-violet-hover) !important;
+    transform: translateY(-2px);
+}
+
+.btn-close-white {
+    filter: invert(1) grayscale(1) brightness(2) !important;
+    opacity: 0.7;
+    transition: var(--transition-smooth) !important;
+}
+
+.btn-close-white:hover {
+    opacity: 1;
+}
+
+/* Ajuste de Toast de Bootstrap */
+.toast {
+    background: rgba(18, 18, 28, 0.9) !important;
+    backdrop-filter: blur(12px) !important;
+    border-radius: 12px !important;
+    box-shadow: 0 10px 35px rgba(0, 0, 0, 0.4) !important;
+    font-family: var(--font-titles) !important;
+    font-weight: 600 !important;
+}
+
+.toast.bg-success {
+    border-left: 4px solid var(--spotify-green) !important;
+}
+
+.toast.bg-danger {
+    border-left: 4px solid var(--chisme-pink) !important;
+}
+
+.toast.bg-info {
+    border-left: 4px solid var(--discord-violet) !important;
+}
+
+/* Ajuste de formulario select dropdown de Bootstrap */
+.form-select.bs-input option {
+    background-color: #12121c !important;
+    color: var(--text-primary) !important;
+}
+
