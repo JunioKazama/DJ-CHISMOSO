@@ -1,34 +1,22 @@
 <?php
 /**
- * DJ CHISMOSO - API de Backend (JSON)
- * 
- * Este archivo centraliza todas las operaciones de backend y las expone en formato JSON
- * para soportar interacciones frontend dinámicas mediante Fetch API (AJAX).
+ * DJ CHISMOSO - API de Backend (JSON) - HOSTINGER
  */
 
 require_once 'config.php';
 
-// Encabezado para responder siempre en formato JSON con soporte UTF-8
 header('Content-Type: application/json; charset=utf-8');
 
-// Obtener la acción solicitada por GET o POST
 $action = isset($_GET['action']) ? $_GET['action'] : (isset($_POST['action']) ? $_POST['action'] : '');
 
-// Estructura de respuesta por defecto
 $response = [
     'success' => false,
     'message' => 'Acción no válida o no especificada.',
     'data' => null
 ];
 
-/**
- * Función para parsear URLs de Spotify
- * Soporta tracks, playlists y albums
- */
 function parseSpotifyUrl($url) {
-    // Expresión regular para capturar el tipo (track, playlist, album) y el ID base62
     $pattern = '/spotify\.com\/(playlist|track|album)\/([a-zA-Z0-9]{15,30})/i';
-    
     if (preg_match($pattern, $url, $matches)) {
         return [
             'type' => strtolower($matches[1]),
@@ -41,10 +29,6 @@ function parseSpotifyUrl($url) {
 try {
     switch ($action) {
         
-        // ==========================================
-        // 1. AUTENTICACIÓN (LOGIN / REGISTRO / SESION)
-        // ==========================================
-        
         case 'get_session':
             if (isLoggedIn()) {
                 $user = getLoggedInUser();
@@ -56,7 +40,7 @@ try {
                     $response['message'] = 'Usuario no encontrado.';
                 }
             } else {
-                $response['success'] = true; // Retorna true pero con data null (modo invitado)
+                $response['success'] = true;
                 $response['message'] = 'Modo invitado (no logueado).';
                 $response['data'] = null;
             }
@@ -104,7 +88,7 @@ try {
 
             $username = trim($_POST['username'] ?? '');
             $password = trim($_POST['password'] ?? '');
-            $avatar = trim($_POST['avatar'] ?? '🎧'); // Avatar emoji por defecto
+            $avatar = trim($_POST['avatar'] ?? '🎧');
             $bio = trim($_POST['bio'] ?? '¡Hola! Soy nuevo en DJ CHISMOSO.');
 
             if (empty($username) || empty($password)) {
@@ -117,7 +101,6 @@ try {
                 break;
             }
 
-            // Verificar si el usuario ya existe
             $stmt = $pdo->prepare("SELECT COUNT(*) FROM users WHERE username = ?");
             $stmt->execute([$username]);
             if ($stmt->fetchColumn() > 0) {
@@ -125,13 +108,11 @@ try {
                 break;
             }
 
-            // Crear el usuario
             $password_hash = password_hash($password, PASSWORD_DEFAULT);
             $stmt = $pdo->prepare("INSERT INTO users (username, password, avatar, bio) VALUES (?, ?, ?, ?)");
             $stmt->execute([$username, $password_hash, $avatar, $bio]);
             $new_user_id = $pdo->lastInsertId();
 
-            // Loguear automáticamente al usuario recién registrado
             $_SESSION['user_id'] = $new_user_id;
             $_SESSION['username'] = $username;
 
@@ -150,21 +131,16 @@ try {
             $response['message'] = 'Sesión cerrada correctamente.';
             break;
 
-        // ==========================================
-        // 2. PUBLICACIONES (POSTS)
-        // ==========================================
-
         case 'get_posts':
             $category = trim($_GET['category'] ?? '');
             $search = trim($_GET['search'] ?? '');
             $user_id = trim($_GET['user_id'] ?? '');
-            $filter = trim($_GET['filter'] ?? 'recent'); // 'recent' o 'trending'
+            $filter = trim($_GET['filter'] ?? 'recent');
             
             $sql = "SELECT p.*, u.username, u.avatar as user_avatar,
                     (SELECT COUNT(*) FROM likes WHERE post_id = p.id) as likes_count,
                     (SELECT COUNT(*) FROM comments WHERE post_id = p.id) as comments_count";
             
-            // Si el usuario está logueado, verificar si ya le dio like a cada post
             if (isLoggedIn()) {
                 $sql .= ", (SELECT COUNT(*) FROM likes WHERE post_id = p.id AND user_id = " . intval($_SESSION['user_id']) . ") as user_liked";
             } else {
@@ -174,19 +150,16 @@ try {
             $sql .= " FROM posts p JOIN users u ON p.user_id = u.id WHERE 1=1";
             $params = [];
 
-            // Filtrado por Categoría
             if (!empty($category)) {
                 $sql .= " AND p.category = ?";
                 $params[] = $category;
             }
 
-            // Filtrado por Usuario
             if (!empty($user_id)) {
                 $sql .= " AND p.user_id = ?";
                 $params[] = intval($user_id);
             }
 
-            // Buscador por Texto (Busca en título, chisme, tags o usuario)
             if (!empty($search)) {
                 $sql .= " AND (p.title LIKE ? OR p.chisme LIKE ? OR u.username LIKE ? OR p.category LIKE ?)";
                 $search_param = "%{$search}%";
@@ -196,12 +169,9 @@ try {
                 $params[] = $search_param;
             }
 
-            // Ordenamiento
             if ($filter === 'trending') {
-                // Ordenar por más likes primero
                 $sql .= " ORDER BY likes_count DESC, p.created_at DESC";
             } else {
-                // Por defecto, más recientes
                 $sql .= " ORDER BY p.created_at DESC";
             }
 
@@ -235,7 +205,6 @@ try {
                 break;
             }
 
-            // Parsear el enlace de Spotify
             $spotify_data = parseSpotifyUrl($spotify_url);
             if (!$spotify_data) {
                 $response['message'] = 'El enlace de Spotify no es válido. Asegúrate de copiar un enlace de canción, playlist o álbum.';
@@ -258,10 +227,6 @@ try {
             $response['data'] = ['id' => $pdo->lastInsertId()];
             break;
 
-        // ==========================================
-        // 3. ME GUSTA (LIKES)
-        // ==========================================
-
         case 'toggle_like':
             if (!isLoggedIn()) {
                 $response['message'] = 'Debes iniciar sesión para dar likes.';
@@ -276,26 +241,22 @@ try {
                 break;
             }
 
-            // Comprobar si ya existe el like
             $stmt = $pdo->prepare("SELECT COUNT(*) FROM likes WHERE user_id = ? AND post_id = ?");
             $stmt->execute([$user_id, $post_id]);
             $exists = $stmt->fetchColumn() > 0;
 
             if ($exists) {
-                // Quitar Like
                 $stmt = $pdo->prepare("DELETE FROM likes WHERE user_id = ? AND post_id = ?");
                 $stmt->execute([$user_id, $post_id]);
                 $liked = false;
                 $message = 'Like eliminado.';
             } else {
-                // Añadir Like
                 $stmt = $pdo->prepare("INSERT INTO likes (user_id, post_id) VALUES (?, ?)");
                 $stmt->execute([$user_id, $post_id]);
                 $liked = true;
                 $message = '¡Like agregado!';
             }
 
-            // Obtener el conteo actualizado de likes
             $stmt = $pdo->prepare("SELECT COUNT(*) FROM likes WHERE post_id = ?");
             $stmt->execute([$post_id]);
             $likes_count = $stmt->fetchColumn();
@@ -307,10 +268,6 @@ try {
                 'likes_count' => $likes_count
             ];
             break;
-
-        // ==========================================
-        // 4. COMENTARIOS
-        // ==========================================
 
         case 'get_comments':
             $post_id = intval($_GET['post_id'] ?? 0);
@@ -364,10 +321,6 @@ try {
             ];
             break;
 
-        // ==========================================
-        // 5. PERFILES Y SOCIAL (FOLLOWS)
-        // ==========================================
-
         case 'get_profile':
             $target_user_id = intval($_GET['user_id'] ?? 0);
             
@@ -376,7 +329,6 @@ try {
                 break;
             }
 
-            // Obtener datos del usuario
             $stmt = $pdo->prepare("SELECT id, username, avatar, bio, created_at FROM users WHERE id = ?");
             $stmt->execute([$target_user_id]);
             $user_data = $stmt->fetch();
@@ -386,17 +338,14 @@ try {
                 break;
             }
 
-            // Obtener número de seguidores
             $stmt = $pdo->prepare("SELECT COUNT(*) FROM follows WHERE following_id = ?");
             $stmt->execute([$target_user_id]);
             $followers_count = $stmt->fetchColumn();
 
-            // Obtener número de seguidos
             $stmt = $pdo->prepare("SELECT COUNT(*) FROM follows WHERE follower_id = ?");
             $stmt->execute([$target_user_id]);
             $following_count = $stmt->fetchColumn();
 
-            // Verificar si el usuario actual sigue a este usuario
             $is_following = false;
             if (isLoggedIn() && $_SESSION['user_id'] != $target_user_id) {
                 $stmt = $pdo->prepare("SELECT COUNT(*) FROM follows WHERE follower_id = ? AND following_id = ?");
@@ -428,26 +377,22 @@ try {
                 break;
             }
 
-            // Verificar si ya lo sigue
             $stmt = $pdo->prepare("SELECT COUNT(*) FROM follows WHERE follower_id = ? AND following_id = ?");
             $stmt->execute([$follower_id, $following_id]);
             $exists = $stmt->fetchColumn() > 0;
 
             if ($exists) {
-                // Dejar de seguir
                 $stmt = $pdo->prepare("DELETE FROM follows WHERE follower_id = ? AND following_id = ?");
                 $stmt->execute([$follower_id, $following_id]);
                 $following = false;
                 $message = 'Dejaste de seguir a este usuario.';
             } else {
-                // Seguir
                 $stmt = $pdo->prepare("INSERT INTO follows (follower_id, following_id) VALUES (?, ?)");
                 $stmt->execute([$follower_id, $following_id]);
                 $following = true;
                 $message = '¡Ahora sigues a este usuario!';
             }
 
-            // Obtener el conteo actualizado de seguidores
             $stmt = $pdo->prepare("SELECT COUNT(*) FROM follows WHERE following_id = ?");
             $stmt->execute([$following_id]);
             $followers_count = $stmt->fetchColumn();
@@ -460,12 +405,7 @@ try {
             ];
             break;
 
-        // ==========================================
-        // 6. RANKINGS Y TENDENCIAS (SIDEBAR)
-        // ==========================================
-
         case 'get_rankings':
-            // Las 5 playlists/canciones más populares basadas en me gusta
             $stmt = $pdo->query("
                 SELECT p.id, p.title, p.spotify_id, p.spotify_type, p.category, u.username,
                        (SELECT COUNT(*) FROM likes WHERE post_id = p.id) as likes_count
@@ -482,7 +422,6 @@ try {
             break;
 
         case 'get_trends':
-            // Obtener categorías populares con conteo de posts y me gusta totales
             $stmt = $pdo->query("
                 SELECT category as name, COUNT(*) as posts_count,
                        (SELECT COUNT(*) FROM likes l JOIN posts p2 ON l.post_id = p2.id WHERE p2.category = posts.category) as total_likes
@@ -502,6 +441,5 @@ try {
     $response['message'] = 'Error en base de datos: ' . $e->getMessage();
 }
 
-// Retornar respuesta codificada en JSON
 echo json_encode($response, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
 ?>
