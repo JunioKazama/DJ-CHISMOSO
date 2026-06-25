@@ -111,19 +111,23 @@
 <body>
     <div class="container">
         <h1>DJ CHISMOSO</h1>
-        <div class="subtitle">Asistente de Configuración (Hostinger)</div>
+        <div class="subtitle">Asistente de Configuración de Base de Datos</div>
         
         <div class="log-box">
             <?php
-            // Incluir variables de configuración
+            // Incluir temporalmente variables de configuración manualmente para evitar fallos si el archivo config.php da error por DB inexistente
+            $db_host = 'localhost';
+            $db_user = 'root';
+            $db_pass = '';
+            $db_name = 'dj_chismoso';
+
+            // Incluir el archivo para obtener constantes reales en caso de que el usuario las haya cambiado
             if (file_exists('config.php')) {
                 include_once 'config.php';
                 $db_host = DB_HOST;
                 $db_user = DB_USER;
                 $db_pass = DB_PASS;
                 $db_name = DB_NAME;
-            } else {
-                die("Error: No se encontró 'config.php' en el directorio de subida.");
             }
 
             function logMsg($msg, $type = 'info') {
@@ -131,24 +135,25 @@
                 if ($type == 'success') $icon = '✔';
                 if ($type == 'error') $icon = '✘';
                 echo "<div class='log-item {$type}'><span class='icon'>{$icon}</span> " . htmlspecialchars($msg) . "</div>";
+                // Forzar salida en navegadores
                 flush();
             }
 
             try {
-                logMsg("Conectando al servidor de Hostinger '{$db_host}' como usuario '{$db_user}'...", 'info');
+                logMsg("Conectando al servidor MySQL en '{$db_host}' como usuario '{$db_user}'...", 'info');
                 
-                // Conectarse inicialmente
+                // Conexión inicial sin base de datos específica
                 $pdo_setup = new PDO("mysql:host={$db_host};charset=utf8mb4", $db_user, $db_pass, [
                     PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION
                 ]);
-                logMsg("Conexión al servidor exitosa.", "success");
+                logMsg("Conexión al servidor MySQL exitosa.", "success");
 
                 // Crear Base de Datos
                 logMsg("Creando base de datos '{$db_name}' si no existe...", 'info');
                 $pdo_setup->exec("CREATE DATABASE IF NOT EXISTS `{$db_name}` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
                 logMsg("Base de datos '{$db_name}' lista.", 'success');
 
-                // Conectarse a la base de datos
+                // Conectarse a la base de datos recién creada
                 $pdo_setup->exec("USE `{$db_name}`");
 
                 // 1. Crear Tabla de Usuarios
@@ -159,9 +164,18 @@
                     `password` VARCHAR(255) NOT NULL,
                     `avatar` VARCHAR(255) NOT NULL,
                     `bio` TEXT DEFAULT NULL,
+                    `featured_track` VARCHAR(500) DEFAULT NULL,
                     `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
-                logMsg("Tabla 'users' creada exitosamente.", 'success');
+                
+                // Asegurar que la columna featured_track exista si la tabla ya existía
+                try {
+                    $pdo_setup->exec("SELECT featured_track FROM users LIMIT 1");
+                } catch (PDOException $e) {
+                    $pdo_setup->exec("ALTER TABLE users ADD COLUMN featured_track VARCHAR(500) DEFAULT NULL AFTER bio");
+                    logMsg("Columna 'featured_track' agregada a la tabla 'users'.", 'info');
+                }
+                logMsg("Tabla 'users' creada o actualizada exitosamente.", 'success');
 
                 // 2. Crear Tabla de Publicaciones
                 logMsg("Creando tabla 'posts'...", 'info');
@@ -179,18 +193,27 @@
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
                 logMsg("Tabla 'posts' creada exitosamente.", 'success');
 
-                // 3. Crear Tabla de Likes
+                // 3. Crear Tabla de Likes (con tipo de reacción)
                 logMsg("Creando tabla 'likes'...", 'info');
                 $pdo_setup->exec("CREATE TABLE IF NOT EXISTS `likes` (
                     `id` INT AUTO_INCREMENT PRIMARY KEY,
                     `user_id` INT NOT NULL,
                     `post_id` INT NOT NULL,
+                    `reaction_type` VARCHAR(20) NOT NULL DEFAULT 'heart',
                     `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     UNIQUE KEY `unique_user_post` (`user_id`, `post_id`),
                     FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE,
                     FOREIGN KEY (`post_id`) REFERENCES `posts`(`id`) ON DELETE CASCADE
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
-                logMsg("Tabla 'likes' creada exitosamente.", 'success');
+
+                // Asegurar que la columna reaction_type exista si la tabla ya existía
+                try {
+                    $pdo_setup->exec("SELECT reaction_type FROM likes LIMIT 1");
+                } catch (PDOException $e) {
+                    $pdo_setup->exec("ALTER TABLE likes ADD COLUMN reaction_type VARCHAR(20) NOT NULL DEFAULT 'heart' AFTER post_id");
+                    logMsg("Columna 'reaction_type' agregada a la tabla 'likes'.", 'info');
+                }
+                logMsg("Tabla 'likes' creada o actualizada exitosamente.", 'success');
 
                 // 4. Crear Tabla de Comentarios
                 logMsg("Creando tabla 'comments'...", 'info');
@@ -217,16 +240,46 @@
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
                 logMsg("Tabla 'follows' creada exitosamente.", 'success');
 
-                // 6. Sembrar datos de ejemplo (Seeds) si está vacía
+                // 6. Crear Tabla de Mensajes de Chat
+                logMsg("Creando tabla 'chat_messages'...", 'info');
+                $pdo_setup->exec("CREATE TABLE IF NOT EXISTS `chat_messages` (
+                    `id` INT AUTO_INCREMENT PRIMARY KEY,
+                    `user_id` INT NOT NULL,
+                    `message` TEXT NOT NULL,
+                    `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+                logMsg("Tabla 'chat_messages' creada exitosamente.", 'success');
+
+                // 7. Crear Tabla de Notificaciones
+                logMsg("Creando tabla 'notifications'...", 'info');
+                $pdo_setup->exec("CREATE TABLE IF NOT EXISTS `notifications` (
+                    `id` INT AUTO_INCREMENT PRIMARY KEY,
+                    `user_id` INT NOT NULL,
+                    `sender_id` INT NOT NULL,
+                    `type` ENUM('like','comment','follow') NOT NULL,
+                    `post_id` INT DEFAULT NULL,
+                    `is_read` TINYINT(1) NOT NULL DEFAULT 0,
+                    `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE,
+                    FOREIGN KEY (`sender_id`) REFERENCES `users`(`id`) ON DELETE CASCADE
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+                logMsg("Tabla 'notifications' creada exitosamente.", 'success');
+
+                // 8. Sembrar datos de ejemplo (Seeds) si está vacía
                 logMsg("Comprobando si la base de datos ya tiene usuarios...", 'info');
                 $stmt = $pdo_setup->query("SELECT COUNT(*) FROM `users`");
                 $user_count = $stmt->fetchColumn();
 
                 if ($user_count == 0) {
                     logMsg("Sembrando usuarios iniciales...", 'info');
+                    
+                    // Contraseñas encriptadas con password_hash ("123456" de contraseña de prueba)
                     $pass_hashed = password_hash("123456", PASSWORD_DEFAULT);
 
+                    // Insertar usuarios iniciales
                     $insert_user = $pdo_setup->prepare("INSERT INTO `users` (id, username, password, avatar, bio) VALUES (?, ?, ?, ?, ?)");
+                    
                     $users = [
                         [1, 'dj_chismoso', $pass_hashed, '🎧', 'El DJ oficial del chisme musical. Aquí comparto las playlists más ardientes.'],
                         [2, 'el_rockero_99', $pass_hashed, '🎸', 'Amante de los solos de guitarra eternos, el vinilo y el rock clásico de verdad.'],
@@ -273,7 +326,7 @@
                             'https://open.spotify.com/playlist/37i9dQZF1DX2Nc3Xugwjg2', 
                             '37i9dQZF1DX2Nc3Xugwjg2', 'playlist',
                             'Indie Pop para Días Lluviosos ☔', 
-                            'Perfecto para sentarse junto a la ventana, mirar las gotas de lluvia caer y fingir que eres el protagonista de una película adolescente de directores independientes que nadie conoce en un día lluvioso de otoño. Canciones nostálgicas, guitarras indie de baja fidelidad y voces susurradas. Ideal para soñar despierto.', 
+                            'Perfecto para sentarse junto a la ventana, mirar las gotas de lluvia caer y fingir que eres el protagonista de una película adolescente de directores independientes que nadie conoce. Canciones nostálgicas, guitarras indie de baja fidelidad y voces susurradas. Ideal para soñar despierto.', 
                             'Indie'
                         ],
                         [
@@ -348,15 +401,15 @@
                     }
                     logMsg("Seguimientos iniciales agregados.", 'success');
                 } else {
-                    logMsg("La base de datos en Hostinger ya cuenta con registros. Se omitió la siembra.", 'info');
+                    logMsg("La base de datos ya cuenta con registros. Se omitió la siembra de datos iniciales.", 'info');
                 }
 
-                logMsg("¡INSTALACIÓN COMPLETADA EN HOSTINGER CON ÉXITO!", 'success');
-                echo "<div style='margin-top: 25px; color: var(--accent-green); font-weight: 800; font-size: 1.2rem;'>DJ CHISMOSO está listo para Hostinger. 🎧🔥</div>";
+                logMsg("¡INSTALACIÓN COMPLETADA CON ÉXITO!", 'success');
+                echo "<div style='margin-top: 25px; color: var(--accent-green); font-weight: 800; font-size: 1.2rem;'>DJ CHISMOSO está listo para rodar. 🎧🔥</div>";
 
             } catch (PDOException $e) {
-                logMsg("ERROR DE INSTALACIÓN EN HOSTINGER: " . $e->getMessage(), 'error');
-                logMsg("Asegúrate de haber ingresado el host, usuario, contraseña y base de datos correctos de Hostinger en el archivo 'config.php' e intenta recargar esta página.", 'error');
+                logMsg("ERROR DE INSTALACIÓN: " . $e->getMessage(), 'error');
+                logMsg("Por favor, asegúrate de que el servidor MySQL esté activo y que el usuario y la contraseña en 'config.php' sean correctos.", 'error');
             }
             ?>
         </div>

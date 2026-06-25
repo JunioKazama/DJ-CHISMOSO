@@ -1,6 +1,6 @@
 <?php
 /**
- * DJ CHISMOSO - Página Web Principal (SPA)
+ * DJ CHISMOSO - Página Web Principal (SPA) - HOSTINGER
  * 
  * Esta es la vista principal que carga el layout completo del dashboard de música.
  * Controla el esqueleto HTML, carga las fuentes, íconos, estilos CSS y el controlador Javascript.
@@ -13,10 +13,17 @@ require_once 'config.php';
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="description" content="DJ CHISMOSO - La red social definitiva para descubrir música y compartir chismes sobre tus playlists de Spotify.">
-    <title>DJ CHISMOSO - Descubrimiento Musical & Playlist Chismes</title>
+    <title>DJ CHISMOSO - Descubrimiento Musical &amp; Playlist Chismes</title>
+    
+    <!-- Favicon / Icono de la pestaña: Emoji de Audífonos -->
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2280%22>🎧</text></svg>">
     
     <!-- Fuentes premium de Google Fonts -->
+    <!-- PERF: preconnect abre la conexión TCP con anticipación, reduce carga de fuentes ~200ms -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+
     
     <!-- Iconos de FontAwesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -58,7 +65,7 @@ require_once 'config.php';
             </div>
             
             <div class="header-right" id="header-user-area">
-                <!-- Se poblará dinámicamente con JS (Botón Login o Perfil de Usuario) -->
+                <!-- Se poblará dinámicamente con JS (Botón Login o Perfil de Usuario + Campana) -->
                 <div class="skeleton header-skeleton" style="width: 120px; height: 40px; border-radius: 20px;"></div>
             </div>
         </header>
@@ -79,6 +86,10 @@ require_once 'config.php';
                         <i class="fa-solid fa-fire"></i>
                         <span>Tendencias</span>
                     </button>
+                    <button class="nav-btn" id="btn-nav-following" style="display: none;">
+                        <i class="fa-solid fa-user-group"></i>
+                        <span>Siguiendo</span>
+                    </button>
                     <button class="nav-btn" id="btn-nav-create-post">
                         <i class="fa-solid fa-circle-plus"></i>
                         <span>Compartir Chisme</span>
@@ -91,17 +102,30 @@ require_once 'config.php';
 
                 <div class="sidebar-divider"></div>
 
+                <!-- Filtros de Formato Spotify -->
+                <div class="categories-section">
+                    <h3>Formato</h3>
+                    <div class="categories-list">
+                        <button class="category-pill active" data-spotify-type="">🎵 Todos</button>
+                        <button class="category-pill" data-spotify-type="track"><i class="fa-solid fa-music"></i> Canciones</button>
+                        <button class="category-pill" data-spotify-type="playlist"><i class="fa-solid fa-list-music"></i> Playlists</button>
+                        <button class="category-pill" data-spotify-type="album"><i class="fa-solid fa-record-vinyl"></i> Álbumes</button>
+                    </div>
+                </div>
+
+                <div class="sidebar-divider"></div>
+
                 <div class="categories-section">
                     <h3>Categorías</h3>
                     <div class="categories-list">
-                        <button class="category-pill active" data-category="">Todos</button>
-                        <button class="category-pill" data-category="Rock"><i class="fa-solid fa-guitar"></i> Rock</button>
-                        <button class="category-pill" data-category="Indie"><i class="fa-solid fa-seedling"></i> Indie</button>
-                        <button class="category-pill" data-category="Lo-fi"><i class="fa-solid fa-mug-hot"></i> Lo-fi</button>
-                        <button class="category-pill" data-category="Gym"><i class="fa-solid fa-dumbbell"></i> Gym</button>
-                        <button class="category-pill" data-category="Estudio"><i class="fa-solid fa-book"></i> Estudio</button>
-                        <button class="category-pill" data-category="Triste"><i class="fa-solid fa-cloud-showers-heavy"></i> Triste</button>
-                        <button class="category-pill" data-category="Gaming"><i class="fa-solid fa-gamepad"></i> Gaming</button>
+                        <button class="category-pill-genre active" data-category="">Todos</button>
+                        <button class="category-pill-genre" data-category="Rock"><i class="fa-solid fa-guitar"></i> Rock</button>
+                        <button class="category-pill-genre" data-category="Indie"><i class="fa-solid fa-seedling"></i> Indie</button>
+                        <button class="category-pill-genre" data-category="Lo-fi"><i class="fa-solid fa-mug-hot"></i> Lo-fi</button>
+                        <button class="category-pill-genre" data-category="Gym"><i class="fa-solid fa-dumbbell"></i> Gym</button>
+                        <button class="category-pill-genre" data-category="Estudio"><i class="fa-solid fa-book"></i> Estudio</button>
+                        <button class="category-pill-genre" data-category="Triste"><i class="fa-solid fa-cloud-showers-heavy"></i> Triste</button>
+                        <button class="category-pill-genre" data-category="Gaming"><i class="fa-solid fa-gamepad"></i> Gaming</button>
                     </div>
                 </div>
 
@@ -123,6 +147,7 @@ require_once 'config.php';
                         <div class="feed-tabs">
                             <button class="feed-tab active" id="tab-recent">Recientes</button>
                             <button class="feed-tab" id="tab-popular">Más Votados</button>
+                            <button class="feed-tab" id="tab-following" style="display:none;">Siguiendo</button>
                         </div>
                     </div>
 
@@ -169,10 +194,21 @@ require_once 'config.php';
                             <button id="profile-follow-btn" class="btn btn-follow" style="display: none;">
                                 <i class="fa-solid fa-user-plus"></i> Seguir
                             </button>
+                            <button id="profile-edit-btn" class="btn btn-outline-edit" style="display: none;">
+                                <i class="fa-solid fa-pen-to-square"></i> Editar Perfil
+                            </button>
                             <button id="profile-logout-btn" class="btn btn-outline" style="display: none;">
                                 <i class="fa-solid fa-right-from-bracket"></i> Cerrar Sesión
                             </button>
                         </div>
+                    </div>
+
+                    <!-- Canción Insignia del DJ -->
+                    <div id="profile-featured-track-area" style="display:none;">
+                        <div class="featured-track-label">
+                            <i class="fa-solid fa-star accent-text"></i> Canción Insignia del DJ
+                        </div>
+                        <div id="profile-featured-track-embed"></div>
                     </div>
 
                     <div class="profile-posts-section">
@@ -185,14 +221,13 @@ require_once 'config.php';
 
             </main>
 
-            <!-- --- COLUMNA 3: SIDEBAR DERECHO (TENDENCIAS Y RANKINGS) --- -->
+            <!-- --- COLUMNA 3: SIDEBAR DERECHO (TENDENCIAS, RANKINGS Y CHAT) --- -->
             <aside class="sidebar-right">
                 
                 <!-- Sección 1: Rankings Semanales -->
                 <div class="ranking-panel">
                     <h3><i class="fa-solid fa-ranking-star accent-pink-text"></i> Chisme de la Semana</h3>
                     <div class="ranking-list" id="rankings-container">
-                        <!-- Se poblará con JS -->
                         <div class="skeleton-list-item"></div>
                         <div class="skeleton-list-item"></div>
                         <div class="skeleton-list-item"></div>
@@ -207,33 +242,7 @@ require_once 'config.php';
                     </div>
                 </div>
 
-                <!-- Sección 3: Actividad Discord Style -->
-                <div class="active-users-panel">
-                    <h3><i class="fa-solid fa-circle-nodes accent-purple-text"></i> DJ Activos en Sala</h3>
-                    <div class="active-users-list">
-                        <div class="user-active-item">
-                            <div class="user-active-avatar">🎧<span class="online-indicator"></span></div>
-                            <div class="user-active-info">
-                                <span class="username">dj_chismoso</span>
-                                <span class="status">Escuchando Lofi Chill</span>
-                            </div>
-                        </div>
-                        <div class="user-active-item">
-                            <div class="user-active-avatar">🎸<span class="online-indicator"></span></div>
-                            <div class="user-active-info">
-                                <span class="username">el_rockero_99</span>
-                                <span class="status">Compartiendo Led Zeppelin</span>
-                            </div>
-                        </div>
-                        <div class="user-active-item">
-                            <div class="user-active-avatar">🌸<span class="online-indicator"></span></div>
-                            <div class="user-active-info">
-                                <span class="username">indie_girl</span>
-                                <span class="status">Buscando joyas ocultas</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+
             </aside>
         </div>
 
@@ -269,11 +278,35 @@ require_once 'config.php';
             </div>
 
             <div class="player-right">
+                <!-- Botón de cola de reproducción -->
+                <button class="btn-queue-toggle" id="btn-queue-toggle" title="Cola de reproducción">
+                    <i class="fa-solid fa-list-ol"></i>
+                    <span class="queue-count-badge" id="queue-count-badge" style="display:none;">0</span>
+                </button>
+                <button class="btn-next-player" id="btn-next-player" title="Siguiente canción">
+                    <i class="fa-solid fa-forward"></i>
+                </button>
                 <button class="btn-close-player" id="btn-close-player" title="Cerrar reproductor">
                     <i class="fa-solid fa-xmark"></i>
                 </button>
             </div>
         </footer>
+
+        <!-- Panel flotante: Cola de Reproducción -->
+        <div class="queue-panel" id="queue-panel" style="display:none;">
+            <div class="queue-panel-header">
+                <h4><i class="fa-solid fa-list-ol"></i> Cola de Reproducción</h4>
+                <button id="btn-clear-queue" class="btn-clear-queue" title="Limpiar cola">
+                    <i class="fa-solid fa-trash"></i>
+                </button>
+            </div>
+            <div class="queue-list" id="queue-list">
+                <div class="queue-empty">
+                    <i class="fa-solid fa-music"></i>
+                    <p>La cola está vacía.<br>Añade canciones desde el feed.</p>
+                </div>
+            </div>
+        </div>
 
     </div>
 
@@ -393,7 +426,7 @@ require_once 'config.php';
         </div>
     </div>
 
-    <!-- Modal 3: Comentarios Detallados (Drawer/Modal) -->
+    <!-- Modal 3: Comentarios Detallados -->
     <div class="modal fade" id="modal-comments" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered modal-xl">
             <div class="modal-content bs-modal-content">
@@ -426,6 +459,50 @@ require_once 'config.php';
         </div>
     </div>
 
+    <!-- Modal 4: Editar Perfil -->
+    <div class="modal fade" id="modal-edit-profile" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content bs-modal-content">
+                <div class="modal-body p-4 position-relative">
+                    <button type="button" class="btn-close btn-close-white position-absolute" style="top: 20px; right: 20px; z-index: 10;" data-bs-dismiss="modal" aria-label="Close" id="btn-close-modal-edit"></button>
+                    <h2 class="mb-1">Editar tu Perfil DJ 🎚️</h2>
+                    <p class="text-secondary mb-4" style="font-size: 0.9rem;">Personaliza cómo te ven los demás DJs.</p>
+
+                    <form id="form-edit-profile">
+                        <div class="mb-3">
+                            <label class="form-label text-secondary text-uppercase fw-bold" style="font-size: 0.85rem; letter-spacing: 0.5px;">Tu Avatar (Emoji)</label>
+                            <div class="avatar-selector" id="edit-avatar-selector">
+                                <label class="avatar-option"><input type="radio" name="edit-avatar" value="🎧"><span>🎧</span></label>
+                                <label class="avatar-option"><input type="radio" name="edit-avatar" value="🎸"><span>🎸</span></label>
+                                <label class="avatar-option"><input type="radio" name="edit-avatar" value="🌸"><span>🌸</span></label>
+                                <label class="avatar-option"><input type="radio" name="edit-avatar" value="☕"><span>☕</span></label>
+                                <label class="avatar-option"><input type="radio" name="edit-avatar" value="⚡"><span>⚡</span></label>
+                                <label class="avatar-option"><input type="radio" name="edit-avatar" value="🐱"><span>🐱</span></label>
+                                <label class="avatar-option"><input type="radio" name="edit-avatar" value="👾"><span>👾</span></label>
+                                <label class="avatar-option"><input type="radio" name="edit-avatar" value="🔥"><span>🔥</span></label>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label for="edit-bio" class="form-label text-secondary text-uppercase fw-bold" style="font-size: 0.85rem; letter-spacing: 0.5px;">Biografía Musical</label>
+                            <textarea id="edit-bio" class="form-control bs-input" rows="3" placeholder="Cuéntanos tu historia musical..." maxlength="300"></textarea>
+                        </div>
+                        <div class="mb-3">
+                            <label for="edit-featured-track" class="form-label text-secondary text-uppercase fw-bold" style="font-size: 0.85rem; letter-spacing: 0.5px;">🌟 Canción Insignia (Enlace Spotify)</label>
+                            <div class="input-group">
+                                <span class="input-group-text bg-transparent border-end-0 text-success"><i class="fa-brands fa-spotify"></i></span>
+                                <input type="url" id="edit-featured-track" class="form-control bs-input border-start-0" placeholder="https://open.spotify.com/track/... (opcional)">
+                            </div>
+                            <div class="form-text text-muted mt-1" style="font-size: 0.8rem;">Esta canción aparecerá en tu perfil para que todos la escuchen.</div>
+                        </div>
+
+                        <div id="edit-profile-error-msg" class="error-msg mb-3" style="display: none;"></div>
+                        <button type="submit" class="btn btn-primary w-100 py-2 fw-bold">Guardar Cambios ✅</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Toast de Notificaciones Flotantes -->
     <div class="toast-container position-fixed bottom-0 end-0 p-3" style="z-index: 3000;">
         <div id="toast-notify" class="toast align-items-center border-0 bg-dark text-white" role="alert" aria-live="assertive" aria-atomic="true">
@@ -438,7 +515,47 @@ require_once 'config.php';
         </div>
     </div>
 
-    <!-- Bootstrap 5 JS Bundle -->
+    <!-- ==========================================
+         BURBUJA FLOTANTE: EL CHISMÓGRAFO (CHAT)
+         ========================================== -->
+    <div id="chat-bubble-root">
+
+        <!-- Ventana de Chat (oculta por defecto) -->
+        <div id="chat-window" class="chat-window" aria-hidden="true">
+            <div class="chat-window-header">
+                <div class="chat-window-title">
+                    <i class="fa-solid fa-comments"></i>
+                    <span>El Chismógrafo</span>
+                    <span class="chat-live-dot"></span>
+                    <span class="chat-live-label">EN VIVO</span>
+                </div>
+                <button id="btn-close-chat-window" class="btn-close-chat" title="Cerrar chat">
+                    <i class="fa-solid fa-chevron-down"></i>
+                </button>
+            </div>
+            <div class="chat-messages-container" id="chat-messages-list">
+                <div class="chat-placeholder">
+                    <i class="fa-solid fa-satellite-dish"></i>
+                    <span>Sintonizando sala...</span>
+                </div>
+            </div>
+            <div class="chat-input-row" id="chat-input-area">
+                <!-- Se renderizará dinámicamente según sesión -->
+                <div class="chat-login-prompt">
+                    <span onclick="openModal('modal-auth')" style="cursor:pointer; color: var(--spotify-green);">Inicia sesión</span> para chatear
+                </div>
+            </div>
+        </div>
+
+        <!-- Burbuja (botón flotante) -->
+        <button id="btn-chat-bubble" class="chat-bubble-btn" title="El Chismógrafo - Chat en Vivo" aria-label="Abrir chat">
+            <i class="fa-solid fa-comments chat-bubble-icon-open"></i>
+            <i class="fa-solid fa-chevron-down chat-bubble-icon-close" style="display:none;"></i>
+            <span class="chat-bubble-badge" id="chat-bubble-unread" style="display:none;">!</span>
+        </button>
+    </div>
+
+
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
 
     <!-- Script Controlador principal -->

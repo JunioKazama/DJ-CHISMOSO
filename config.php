@@ -1,9 +1,9 @@
 <?php
 /**
- * DJ CHISMOSO - Configuración de Base de Datos y Sesiones (PRODUCCIÓN HOSTINGER)
+ * DJ CHISMOSO - Configuración de Base de Datos y Sesiones
  * 
- * Modifica los valores abajo con las credenciales de la base de datos MySQL 
- * que crees en tu panel de Hostinger (hPanel).
+ * Este archivo establece la conexión segura a la base de datos MySQL usando PDO
+ * y maneja el inicio de las sesiones de usuario.
  */
 
 // Iniciar la sesión de usuario de forma segura
@@ -11,13 +11,11 @@ if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
-// ==========================================================================
-// CONFIGURACIÓN DE BASE DE DATOS PARA HOSTINGER
-// ==========================================================================
-define('DB_HOST', 'localhost');          // En Hostinger por defecto es 'localhost'
-define('DB_USER', 'u310445577_Junio');   // Reemplaza por tu usuario de BD de Hostinger (ej: u123456789_chismoso)
-define('DB_PASS', 'K1ax71?y'); // Reemplaza por la contraseña de la BD
-define('DB_NAME', 'u310445577_DJ_CHISMOSO');    // Reemplaza por el nombre de la BD (ej: u123456789_dj_chismoso)
+// Configuración de la base de datos (Fácilmente modificable para Hostinger)
+define('DB_HOST', 'localhost');
+define('DB_USER', 'root');
+define('DB_PASS', '');
+define('DB_NAME', 'dj_chismoso');
 
 // Conexión PDO a la Base de Datos
 $pdo = null;
@@ -34,17 +32,20 @@ try {
 } catch (PDOException $e) {
     // Si falla porque la base de datos no existe, permitiremos que db_setup.php se conecte
     // al servidor de base de datos sin especificar base de datos para poder crearla.
-    if ($e->getCode() == 1049) { 
+    if ($e->getCode() == 1049) { // 1049 es "Unknown database" en MySQL
         try {
             $dsn_no_db = "mysql:host=" . DB_HOST . ";charset=utf8mb4";
             $pdo_no_db = new PDO($dsn_no_db, DB_USER, DB_PASS, [
                 PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION
             ]);
+            // Dejamos la variable pdo_no_db disponible para db_setup.php
         } catch (PDOException $e2) {
-            die("Error de conexión al servidor MySQL en Hostinger: " . $e2->getMessage());
+            // Si también falla, el servidor de base de datos está apagado
+            die("Error de conexión al servidor MySQL: " . $e2->getMessage());
         }
     } else {
-        die("Error de conexión a la Base de Datos en Hostinger: " . $e->getMessage() . ". Verifica que hayas creado la BD y el usuario en tu Panel de Hostinger.");
+        // Otro tipo de error (usuario incorrecto, contraseña, host, etc.)
+        die("Error de conexión a la Base de Datos: " . $e->getMessage());
     }
 }
 

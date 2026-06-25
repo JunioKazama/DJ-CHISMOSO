@@ -62,7 +62,7 @@ function getLoggedInUser() {
     global $pdo;
     if (!isLoggedIn()) return null;
     
-    $stmt = $pdo->prepare("SELECT id, username, avatar, created_at FROM users WHERE id = ?");
+    $stmt = $pdo->prepare("SELECT id, username, avatar, bio, featured_track, created_at FROM users WHERE id = ?");
     $stmt->execute([$_SESSION['user_id']]);
     return $stmt->fetch();
 }

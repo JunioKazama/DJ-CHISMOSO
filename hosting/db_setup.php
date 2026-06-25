@@ -159,9 +159,18 @@
                     `password` VARCHAR(255) NOT NULL,
                     `avatar` VARCHAR(255) NOT NULL,
                     `bio` TEXT DEFAULT NULL,
+                    `featured_track` VARCHAR(500) DEFAULT NULL,
                     `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
-                logMsg("Tabla 'users' creada exitosamente.", 'success');
+                
+                // Asegurar que la columna featured_track exista si la tabla ya existía
+                try {
+                    $pdo_setup->exec("SELECT featured_track FROM users LIMIT 1");
+                } catch (PDOException $e) {
+                    $pdo_setup->exec("ALTER TABLE users ADD COLUMN featured_track VARCHAR(500) DEFAULT NULL AFTER bio");
+                    logMsg("Columna 'featured_track' agregada a la tabla 'users'.", 'info');
+                }
+                logMsg("Tabla 'users' creada o actualizada exitosamente.", 'success');
 
                 // 2. Crear Tabla de Publicaciones
                 logMsg("Creando tabla 'posts'...", 'info');
@@ -179,18 +188,27 @@
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
                 logMsg("Tabla 'posts' creada exitosamente.", 'success');
 
-                // 3. Crear Tabla de Likes
+                // 3. Crear Tabla de Likes (con tipo de reacción)
                 logMsg("Creando tabla 'likes'...", 'info');
                 $pdo_setup->exec("CREATE TABLE IF NOT EXISTS `likes` (
                     `id` INT AUTO_INCREMENT PRIMARY KEY,
                     `user_id` INT NOT NULL,
                     `post_id` INT NOT NULL,
+                    `reaction_type` VARCHAR(20) NOT NULL DEFAULT 'heart',
                     `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     UNIQUE KEY `unique_user_post` (`user_id`, `post_id`),
                     FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE,
                     FOREIGN KEY (`post_id`) REFERENCES `posts`(`id`) ON DELETE CASCADE
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
-                logMsg("Tabla 'likes' creada exitosamente.", 'success');
+
+                // Asegurar que la columna reaction_type exista si la tabla ya existía
+                try {
+                    $pdo_setup->exec("SELECT reaction_type FROM likes LIMIT 1");
+                } catch (PDOException $e) {
+                    $pdo_setup->exec("ALTER TABLE likes ADD COLUMN reaction_type VARCHAR(20) NOT NULL DEFAULT 'heart' AFTER post_id");
+                    logMsg("Columna 'reaction_type' agregada a la tabla 'likes'.", 'info');
+                }
+                logMsg("Tabla 'likes' creada o actualizada exitosamente.", 'success');
 
                 // 4. Crear Tabla de Comentarios
                 logMsg("Creando tabla 'comments'...", 'info');
@@ -216,6 +234,32 @@
                     FOREIGN KEY (`following_id`) REFERENCES `users`(`id`) ON DELETE CASCADE
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
                 logMsg("Tabla 'follows' creada exitosamente.", 'success');
+
+                // 6. Crear Tabla de Mensajes de Chat
+                logMsg("Creando tabla 'chat_messages'...", 'info');
+                $pdo_setup->exec("CREATE TABLE IF NOT EXISTS `chat_messages` (
+                    `id` INT AUTO_INCREMENT PRIMARY KEY,
+                    `user_id` INT NOT NULL,
+                    `message` TEXT NOT NULL,
+                    `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+                logMsg("Tabla 'chat_messages' creada exitosamente.", 'success');
+
+                // 7. Crear Tabla de Notificaciones
+                logMsg("Creando tabla 'notifications'...", 'info');
+                $pdo_setup->exec("CREATE TABLE IF NOT EXISTS `notifications` (
+                    `id` INT AUTO_INCREMENT PRIMARY KEY,
+                    `user_id` INT NOT NULL,
+                    `sender_id` INT NOT NULL,
+                    `type` ENUM('like','comment','follow') NOT NULL,
+                    `post_id` INT DEFAULT NULL,
+                    `is_read` TINYINT(1) NOT NULL DEFAULT 0,
+                    `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE,
+                    FOREIGN KEY (`sender_id`) REFERENCES `users`(`id`) ON DELETE CASCADE
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+                logMsg("Tabla 'notifications' creada exitosamente.", 'success');
 
                 // 6. Sembrar datos de ejemplo (Seeds) si está vacía
                 logMsg("Comprobando si la base de datos ya tiene usuarios...", 'info');

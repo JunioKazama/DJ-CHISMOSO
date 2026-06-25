@@ -1,106 +1,215 @@
 /**
  * DJ CHISMOSO - Controlador Principal del Frontend (SPA)
- * 
- * Este archivo gestiona el estado de la aplicación, el enrutamiento de vistas,
- * el envío de peticiones AJAX (Fetch API) a api.php y la interactividad visual de la interfaz.
+ *
+ * Gestiona el estado global, enrutamiento de vistas, peticiones AJAX a api.php,
+ * y toda la interactividad: reacciones, chat, cola de reproducción, notificaciones y edición de perfil.
  */
 
-// --- ESTADO GLOBAL DE LA APP ---
+// ==========================================
+// ESTADO GLOBAL DE LA APP
+// ==========================================
 const AppState = {
-    currentUser: null,
-    currentCategory: '',
-    currentSearch: '',
-    currentFilter: 'recent', // 'recent' o 'popular' (Trending)
-    currentView: 'feed', // 'feed' o 'profile'
-    selectedProfileId: null,
-    searchTimeout: null
+    currentUser:        null,
+    currentCategory:    '',
+    currentSpotifyType: '',   // 'track' | 'playlist' | 'album' | ''
+    currentSearch:      '',
+    currentFilter:      'recent', // 'recent' | 'trending' | 'following'
+    currentView:        'feed',
+    selectedProfileId:  null,
+    searchTimeout:      null,
+    // Chat
+    chatLastId:         0,
+    chatInterval:       null,
+    // Notificaciones
+    notifInterval:      null,
+    // Cola de reproducción
+    playbackQueue:      [],
+    currentQueueIndex:  -1,
 };
 
-// --- AL CARGAR EL DOCUMENTO ---
-document.addEventListener('DOMContentLoaded', () => {
-    AppInit();
-});
+// ==========================================
+// MAPAS DE REACCIONES
+// ==========================================
+const REACTION_MAP = {
+    heart: '❤️',
+    fire:  '🔥',
+    cry:   '😭',
+    wow:   '😱',
+    dance: '🕺',
+};
 
-// --- INICIALIZACIÓN DE LA APLICACIÓN ---
+// ==========================================
+// INICIALIZACIÓN
+// ==========================================
+document.addEventListener('DOMContentLoaded', () => { AppInit(); });
+
 function AppInit() {
-    // 1. Obtener la sesión del usuario actual
     fetchSession();
-
-    // 2. Cargar contenido inicial de los feeds y paneles laterales
     loadFeed();
     loadRankings();
     loadTrends();
-
-    // 3. Vincular todos los manejadores de eventos
     bindEventEvents();
+    startChatPolling();
 }
 
 // ==========================================
-// 1. GESTIÓN DE SESIÓN Y USUARIO (AJAX)
+// 1. GESTIÓN DE SESIÓN Y USUARIO
 // ==========================================
 
 async function fetchSession() {
     try {
-        const response = await fetch('api.php?action=get_session');
-        const result = await response.json();
-        
-        if (result.success && result.data) {
-            AppState.currentUser = result.data;
-            renderUserHeader(result.data);
-            
-            // Mostrar opción de "Mi Perfil" en el menú de navegación
-            document.getElementById('btn-nav-profile').style.display = 'flex';
+        const res  = await fetch('api.php?action=get_session');
+        const data = await res.json();
+
+        if (data.success && data.data) {
+            AppState.currentUser = data.data;
+            renderUserHeader(data.data);
+            document.getElementById('btn-nav-profile').style.display   = 'flex';
+            document.getElementById('btn-nav-following').style.display = 'flex';
+            document.getElementById('tab-following').style.display     = 'inline-flex';
+            renderChatInput();
+            startNotifPolling();
         } else {
             AppState.currentUser = null;
             renderGuestHeader();
-            document.getElementById('btn-nav-profile').style.display = 'none';
+            document.getElementById('btn-nav-profile').style.display   = 'none';
+            document.getElementById('btn-nav-following').style.display = 'none';
+            document.getElementById('tab-following').style.display     = 'none';
+            renderChatInput();
         }
-    } catch (error) {
-        console.error('Error al obtener la sesión:', error);
+    } catch (e) {
+        console.error('Error sesión:', e);
         renderGuestHeader();
     }
 }
 
 function renderUserHeader(user) {
-    const userArea = document.getElementById('header-user-area');
-    userArea.innerHTML = `
+    const area = document.getElementById('header-user-area');
+    area.innerHTML = `
+        <div class="notif-bell-wrapper" id="notif-bell-wrapper">
+            <button class="btn-notif-bell" id="btn-notif-bell" title="Notificaciones">
+                <i class="fa-solid fa-bell"></i>
+                <span class="notif-badge" id="notif-badge" style="display:none;">0</span>
+            </button>
+            <div class="notif-dropdown" id="notif-dropdown" style="display:none;">
+                <div class="notif-dropdown-header">
+                    <span>Notificaciones</span>
+                    <button class="notif-mark-read" id="btn-mark-notif-read">Marcar todo leído</button>
+                </div>
+                <div class="notif-list" id="notif-list">
+                    <div class="notif-empty">Sin notificaciones nuevas 🎵</div>
+                </div>
+            </div>
+        </div>
         <div class="user-menu-header" id="header-user-menu">
             <div class="user-menu-avatar">${user.avatar}</div>
             <span class="user-menu-name">${user.username}</span>
         </div>
     `;
-    
-    // Al hacer clic en el menú del usuario en la cabecera, nos lleva a su perfil
-    document.getElementById('header-user-menu').addEventListener('click', () => {
-        switchView('profile', user.id);
+
+    document.getElementById('header-user-menu').addEventListener('click', () => switchView('profile', user.id));
+
+    // Bell toggle
+    document.getElementById('btn-notif-bell').addEventListener('click', (e) => {
+        e.stopPropagation();
+        const dd = document.getElementById('notif-dropdown');
+        dd.style.display = dd.style.display === 'none' ? 'block' : 'none';
+        if (dd.style.display === 'block') {
+            loadNotifications();
+        }
+    });
+    document.addEventListener('click', () => {
+        const dd = document.getElementById('notif-dropdown');
+        if (dd) dd.style.display = 'none';
+    });
+
+    document.getElementById('btn-mark-notif-read').addEventListener('click', async () => {
+        await fetch('api.php', { method: 'POST', body: new URLSearchParams({ action: 'mark_notifications_read' }) });
+        document.getElementById('notif-badge').style.display = 'none';
+        document.getElementById('notif-list').innerHTML = '<div class="notif-empty">Sin notificaciones nuevas 🎵</div>';
     });
 }
 
 function renderGuestHeader() {
-    const userArea = document.getElementById('header-user-area');
-    userArea.innerHTML = `
+    const area = document.getElementById('header-user-area');
+    area.innerHTML = `
         <button class="btn btn-primary" id="btn-header-login">
             <i class="fa-solid fa-right-to-bracket"></i> Iniciar Sesión
         </button>
     `;
-    
-    document.getElementById('btn-header-login').addEventListener('click', () => {
-        openModal('modal-auth');
-    });
+    document.getElementById('btn-header-login').addEventListener('click', () => openModal('modal-auth'));
 }
 
 // ==========================================
-// 2. ENRUTAMIENTO DE VISTAS (SPA)
+// 2. NOTIFICACIONES
+// ==========================================
+
+async function loadNotifications() {
+    try {
+        const res    = await fetch('api.php?action=get_notifications');
+        const result = await res.json();
+        if (!result.success) return;
+
+        const { notifications, unread_count } = result.data;
+        const badge = document.getElementById('notif-badge');
+        if (badge) {
+            if (unread_count > 0) {
+                badge.textContent     = unread_count > 9 ? '9+' : unread_count;
+                badge.style.display   = 'flex';
+            } else {
+                badge.style.display   = 'none';
+            }
+        }
+
+        const list = document.getElementById('notif-list');
+        if (!list) return;
+
+        if (!notifications || notifications.length === 0) {
+            list.innerHTML = '<div class="notif-empty">Sin notificaciones nuevas 🎵</div>';
+            return;
+        }
+
+        list.innerHTML = '';
+        notifications.forEach(n => {
+            const item = document.createElement('div');
+            item.className = 'notif-item' + (n.is_read == 0 ? ' unread' : '');
+            const icons = { like: '❤️', comment: '💬', follow: '👤' };
+            const texts = {
+                like:    `<b>${n.sender_avatar} ${n.sender_username}</b> reaccionó a tu chisme${n.post_title ? ` <i>"${escapeHTML(n.post_title)}"</i>` : ''}`,
+                comment: `<b>${n.sender_avatar} ${n.sender_username}</b> comentó en tu chisme${n.post_title ? ` <i>"${escapeHTML(n.post_title)}"</i>` : ''}`,
+                follow:  `<b>${n.sender_avatar} ${n.sender_username}</b> ahora te sigue`,
+            };
+            item.innerHTML = `
+                <span class="notif-icon">${icons[n.type] || '🔔'}</span>
+                <div class="notif-text">${texts[n.type] || ''}</div>
+                <div class="notif-time">${formatDate(n.created_at)}</div>
+            `;
+            if (n.post_id) {
+                item.style.cursor = 'pointer';
+                item.addEventListener('click', () => {
+                    document.getElementById('notif-dropdown').style.display = 'none';
+                    openCommentsModal(n.post_id);
+                });
+            }
+            list.appendChild(item);
+        });
+    } catch (e) {
+        console.error('Error notificaciones:', e);
+    }
+}
+
+function startNotifPolling() {
+    loadNotifications();
+    AppState.notifInterval = setInterval(loadNotifications, 12000);
+}
+
+// ==========================================
+// 3. ENRUTAMIENTO DE VISTAS (SPA)
 // ==========================================
 
 function switchView(viewName, targetId = null) {
-    // Ocultar todas las vistas
-    const views = document.querySelectorAll('.app-view');
-    views.forEach(v => v.classList.remove('active'));
-    
-    // Desactivar todos los botones de navegación
-    const navButtons = document.querySelectorAll('.nav-btn');
-    navButtons.forEach(btn => btn.classList.remove('active'));
+    document.querySelectorAll('.app-view').forEach(v => v.classList.remove('active'));
+    document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
 
     AppState.currentView = viewName;
 
@@ -109,60 +218,50 @@ function switchView(viewName, targetId = null) {
         document.getElementById('btn-nav-feed').classList.add('active');
         AppState.selectedProfileId = null;
         loadFeed();
-    } 
-    else if (viewName === 'profile') {
+    } else if (viewName === 'profile') {
         document.getElementById('view-profile').classList.add('active');
-        // Si es el perfil del usuario activo, marcamos su botón de navegación
         if (targetId && AppState.currentUser && parseInt(targetId) === parseInt(AppState.currentUser.id)) {
             document.getElementById('btn-nav-profile').classList.add('active');
         }
         AppState.selectedProfileId = targetId;
         loadProfileData(targetId);
     }
-    
-    // Desplazarse al inicio
+
     document.querySelector('.content-area').scrollTop = 0;
 }
 
 // ==========================================
-// 3. CARGA Y RENDERIZADO DE FEED (AJAX)
+// 4. FEED PRINCIPAL
 // ==========================================
 
 async function loadFeed() {
-    const postsContainer = document.getElementById('posts-container');
-    
-    // Mostrar loader esqueleto antes de cargar
-    renderSkeletonLoader(postsContainer);
+    const container = document.getElementById('posts-container');
+    renderSkeletonLoader(container);
 
     try {
         let url = `api.php?action=get_posts&filter=${AppState.currentFilter}`;
-        if (AppState.currentCategory) {
-            url += `&category=${encodeURIComponent(AppState.currentCategory)}`;
-        }
-        if (AppState.currentSearch) {
-            url += `&search=${encodeURIComponent(AppState.currentSearch)}`;
-        }
+        if (AppState.currentCategory)    url += `&category=${encodeURIComponent(AppState.currentCategory)}`;
+        if (AppState.currentSpotifyType) url += `&spotify_type=${encodeURIComponent(AppState.currentSpotifyType)}`;
+        if (AppState.currentSearch)      url += `&search=${encodeURIComponent(AppState.currentSearch)}`;
 
-        const response = await fetch(url);
-        const result = await response.json();
+        const res    = await fetch(url);
+        const result = await res.json();
 
         if (result.success && result.data && result.data.length > 0) {
-            postsContainer.innerHTML = '';
-            result.data.forEach(post => {
-                postsContainer.appendChild(renderPostCard(post));
-            });
+            container.innerHTML = '';
+            result.data.forEach(post => container.appendChild(renderPostCard(post)));
         } else {
-            postsContainer.innerHTML = `
+            container.innerHTML = `
                 <div class="feed-empty-state">
                     <i class="fa-solid fa-compact-disc"></i>
                     <h4>No se encontraron chismes</h4>
-                    <p>Sé el primero en compartir música sobre ${AppState.currentCategory || 'esta búsqueda'} en este canal.</p>
+                    <p>Sé el primero en compartir música en este canal.</p>
                 </div>
             `;
         }
-    } catch (error) {
-        console.error('Error al cargar publicaciones:', error);
-        postsContainer.innerHTML = `
+    } catch (e) {
+        console.error('Error cargando feed:', e);
+        container.innerHTML = `
             <div class="feed-empty-state">
                 <i class="fa-solid fa-triangle-exclamation" style="color: var(--chisme-pink);"></i>
                 <h4>Error de conexión</h4>
@@ -172,30 +271,25 @@ async function loadFeed() {
     }
 }
 
-// Genera el HTML de una tarjeta de publicación
+// ==========================================
+// 5. TARJETA DE POST (RENDER)
+// ==========================================
+
 function renderPostCard(post) {
     const card = document.createElement('article');
     card.className = 'post-card';
     card.id = `post-${post.id}`;
 
-    // Validar tipo de avatar
     const userAvatar = post.user_avatar || '🎧';
-    
-    // Comprobar si el usuario actual sigue a este creador
     let followBtnHtml = '';
     if (AppState.currentUser && parseInt(post.user_id) !== parseInt(AppState.currentUser.id)) {
-        // En un escenario real verificaríamos si lo sigue, por ahora mostramos un botón rápido
         followBtnHtml = `<button class="follow-badge-btn" onclick="handleQuickFollow(event, ${post.user_id})">+ Seguir</button>`;
     }
 
-    // Estilo especial para la tarjeta de música de Spotify
-    let musicCardHtml = '';
     const iconType = post.spotify_type === 'playlist' ? 'fa-music' : (post.spotify_type === 'album' ? 'fa-record-vinyl' : 'fa-compact-disc');
-    
-    // Título descriptivo para la música
     const musicTitle = post.spotify_type.charAt(0).toUpperCase() + post.spotify_type.slice(1);
-    
-    musicCardHtml = `
+
+    const musicCardHtml = `
         <div class="post-music-card">
             <div class="music-info-left">
                 <div class="album-art-fallback">
@@ -211,6 +305,9 @@ function renderPostCard(post) {
                 <button class="btn-listen" onclick="playMusic('${post.spotify_id}', '${post.spotify_type}', '${escapeHTML(post.title)}', '${escapeHTML(post.category)}')">
                     <i class="fa-solid fa-play"></i> Escuchar
                 </button>
+                <button class="btn-add-queue" onclick="addToQueue('${post.spotify_id}', '${post.spotify_type}', '${escapeHTML(post.title)}', '${escapeHTML(post.category)}')" title="Añadir a la cola">
+                    <i class="fa-solid fa-list-ol"></i>
+                </button>
                 <a href="${post.spotify_url}" target="_blank" class="btn-spotify-link" title="Abrir en Spotify App">
                     <i class="fa-brands fa-spotify"></i>
                 </a>
@@ -218,12 +315,14 @@ function renderPostCard(post) {
         </div>
     `;
 
-    // Validar si el usuario actual ya le dio like
-    const likeActive = parseInt(post.user_liked) > 0 ? 'active' : '';
+    // Reacciones
+    const userReaction  = post.user_reaction || null;
+    const totalReacts   = parseInt(post.likes_count) || 0;
+    const reactionsHtml = buildReactionBarHtml(post.id, userReaction, totalReacts, post);
 
     card.innerHTML = `
         <span class="post-category-tag">#${escapeHTML(post.category)}</span>
-        
+
         <div class="post-creator-info">
             <div class="post-avatar" onclick="handleViewProfile(${post.user_id})">${userAvatar}</div>
             <div class="post-meta">
@@ -241,15 +340,12 @@ function renderPostCard(post) {
         ${musicCardHtml}
 
         <div class="post-action-bar">
-            <button class="action-btn btn-like ${likeActive}" onclick="handleLikeToggle(event, ${post.id})">
-                <i class="fa-regular fa-heart"></i>
-                <span class="like-count">${post.likes_count}</span> Likes
-            </button>
+            ${reactionsHtml}
             <button class="action-btn btn-comment" onclick="openCommentsModal(${post.id})">
                 <i class="fa-regular fa-comment"></i>
                 <span>${post.comments_count}</span> Comentarios
             </button>
-            <button class="action-btn btn-share" onclick="handleSharePost('${post.title}', ${post.id})">
+            <button class="action-btn btn-share" onclick="handleSharePost('${escapeHTML(post.title)}', ${post.id})">
                 <i class="fa-regular fa-share-from-square"></i> Compartir
             </button>
         </div>
@@ -258,95 +354,151 @@ function renderPostCard(post) {
     return card;
 }
 
+function buildReactionBarHtml(postId, userReaction, totalCount, post) {
+    // Construir breakdown de reacciones
+    const breakdown = {};
+    ['heart','fire','cry','wow','dance'].forEach(r => {
+        const val = parseInt(post[`react_${r}`]) || 0;
+        if (val > 0) breakdown[r] = val;
+    });
+
+    const topReactions = Object.entries(breakdown)
+        .sort((a,b) => b[1] - a[1])
+        .slice(0, 3)
+        .map(([r]) => REACTION_MAP[r])
+        .join('');
+
+    const activeClass = userReaction ? 'active' : '';
+    const activeEmoji = userReaction ? REACTION_MAP[userReaction] : '❤️';
+
+    const pickerHtml = Object.entries(REACTION_MAP).map(([key, emoji]) => `
+        <button class="reaction-picker-btn ${userReaction === key ? 'selected' : ''}"
+                onclick="handleReaction(event, ${postId}, '${key}')"
+                title="${key}">
+            ${emoji}
+        </button>
+    `).join('');
+
+    return `
+        <div class="reaction-wrapper" id="reaction-wrapper-${postId}">
+            <button class="action-btn btn-like ${activeClass}" id="btn-react-${postId}"
+                    onmouseenter="showReactionPicker(${postId})"
+                    onclick="handleReaction(event, ${postId}, '${userReaction || 'heart'}')">
+                ${activeEmoji}
+                <span class="reaction-summary">${topReactions}</span>
+                <span class="like-count">${totalCount}</span>
+            </button>
+            <div class="reaction-picker" id="reaction-picker-${postId}" style="display:none;"
+                 onmouseenter="keepReactionPicker(${postId})" onmouseleave="hideReactionPicker(${postId})">
+                ${pickerHtml}
+            </div>
+        </div>
+    `;
+}
+
 // ==========================================
-// 4. INTERACCIONES SOCIALES (LIKES, COMMENTS, FOLLOWS)
+// 6. REACCIONES CON EMOJIS
 // ==========================================
 
-async function handleLikeToggle(event, postId) {
+let reactionPickerTimers = {};
+
+function showReactionPicker(postId) {
+    clearTimeout(reactionPickerTimers[postId]);
+    document.getElementById(`reaction-picker-${postId}`).style.display = 'flex';
+}
+
+function keepReactionPicker(postId) {
+    clearTimeout(reactionPickerTimers[postId]);
+}
+
+function hideReactionPicker(postId) {
+    reactionPickerTimers[postId] = setTimeout(() => {
+        const picker = document.getElementById(`reaction-picker-${postId}`);
+        if (picker) picker.style.display = 'none';
+    }, 200);
+}
+
+document.addEventListener('mouseleave', (e) => {
+    // cierra pickers si el mouse sale del documento
+}, true);
+
+async function handleReaction(event, postId, reactionType) {
     event.stopPropagation();
-    
+    hideReactionPicker(postId);
+
     if (!AppState.currentUser) {
-        showToast('Inicia sesión para dar me gusta a este chisme musical.', 'info');
+        showToast('Inicia sesión para reaccionar a este chisme musical.', 'info');
         openModal('modal-auth');
         return;
     }
 
-    const likeBtn = event.currentTarget;
-    const countSpan = likeBtn.querySelector('.like-count');
-
     try {
-        const formData = new FormData();
-        formData.append('action', 'toggle_like');
-        formData.append('post_id', postId);
+        const fd = new FormData();
+        fd.append('action', 'toggle_reaction');
+        fd.append('post_id', postId);
+        fd.append('reaction_type', reactionType);
 
-        const response = await fetch('api.php', {
-            method: 'POST',
-            body: formData
-        });
-        const result = await response.json();
+        const res    = await fetch('api.php', { method: 'POST', body: fd });
+        const result = await res.json();
 
         if (result.success) {
-            if (result.data.liked) {
-                likeBtn.classList.add('active');
-                showToast('¡Agregado a tus favoritos! ❤️', 'success');
-            } else {
-                likeBtn.classList.remove('active');
+            // Actualizar UI del botón
+            const btn = document.getElementById(`btn-react-${postId}`);
+            if (btn) {
+                if (result.data.liked) {
+                    btn.classList.add('active');
+                    const emoji = REACTION_MAP[result.data.user_reaction] || '❤️';
+                    const topReacts = Object.entries(result.data.breakdown || {})
+                        .sort((a,b) => b[1]-a[1]).slice(0,3)
+                        .map(([r]) => REACTION_MAP[r]).join('');
+                    btn.innerHTML = `${emoji} <span class="reaction-summary">${topReacts}</span> <span class="like-count">${result.data.likes_count}</span>`;
+                } else {
+                    btn.classList.remove('active');
+                    btn.innerHTML = `❤️ <span class="reaction-summary"></span> <span class="like-count">${result.data.likes_count}</span>`;
+                }
             }
-            countSpan.textContent = result.data.likes_count;
-            
-            // Actualizar ranking en sidebar lateral
             loadRankings();
         } else {
             showToast(result.message, 'error');
         }
-    } catch (error) {
-        console.error('Error al togglear like:', error);
+    } catch (e) {
+        console.error('Error reacción:', e);
     }
 }
 
+// ==========================================
+// 7. INTERACCIONES SOCIALES (FOLLOWS)
+// ==========================================
+
 async function handleQuickFollow(event, targetUserId) {
     event.stopPropagation();
-    
     if (!AppState.currentUser) {
         showToast('Inicia sesión para seguir a este DJ.', 'info');
         openModal('modal-auth');
         return;
     }
-
     try {
-        const formData = new FormData();
-        formData.append('action', 'toggle_follow');
-        formData.append('user_id', targetUserId);
-
-        const response = await fetch('api.php', {
-            method: 'POST',
-            body: formData
-        });
-        const result = await response.json();
-
+        const fd = new FormData();
+        fd.append('action', 'toggle_follow');
+        fd.append('user_id', targetUserId);
+        const res    = await fetch('api.php', { method: 'POST', body: fd });
+        const result = await res.json();
         if (result.success) {
             showToast(result.message, 'success');
-            
-            // Si estamos viendo el perfil de ese usuario, actualizamos las estadísticas
             if (AppState.currentView === 'profile' && parseInt(AppState.selectedProfileId) === parseInt(targetUserId)) {
                 loadProfileData(targetUserId);
             }
-            // Recargar feeds para ocultar/cambiar estado visual
             loadFeed();
         } else {
             showToast(result.message, 'error');
         }
-    } catch (error) {
-        console.error('Error al seguir usuario:', error);
-    }
+    } catch (e) { console.error(e); }
 }
 
-function handleViewProfile(userId) {
-    switchView('profile', userId);
-}
+function handleViewProfile(userId) { switchView('profile', userId); }
 
 // ==========================================
-// 5. MODAL DE COMENTARIOS (AJAX DETALLADO)
+// 8. MODAL DE COMENTARIOS
 // ==========================================
 
 let activeCommentPostId = null;
@@ -354,37 +506,31 @@ let activeCommentPostId = null;
 async function openCommentsModal(postId) {
     activeCommentPostId = postId;
     openModal('modal-comments');
-    
+
     const previewArea = document.getElementById('comments-post-preview-area');
     const commentsList = document.getElementById('modal-comments-list');
     const formArea = document.getElementById('comment-form-auth-check');
-    
-    previewArea.innerHTML = '<div class="skeleton-list-item"></div>';
+
+    previewArea.innerHTML  = '<div class="skeleton-list-item"></div>';
     commentsList.innerHTML = '<div class="skeleton-list-item"></div>';
 
     try {
-        // 1. Obtener la publicación completa para la vista previa izquierda
-        const postResponse = await fetch(`api.php?action=get_posts`);
-        const postResult = await postResponse.json();
-        
+        const postRes    = await fetch('api.php?action=get_posts');
+        const postResult = await postRes.json();
+
         if (postResult.success && postResult.data) {
             const currentPost = postResult.data.find(p => parseInt(p.id) === parseInt(postId));
             if (currentPost) {
-                // Renders post card inside modal, pero removemos botones redundantes
                 const tempCard = renderPostCard(currentPost);
-                // Quitar botón de comentarios interno del modal
                 const commentBtn = tempCard.querySelector('.btn-comment');
                 if (commentBtn) commentBtn.style.pointerEvents = 'none';
-                
                 previewArea.innerHTML = '';
                 previewArea.appendChild(tempCard);
             }
         }
 
-        // 2. Obtener y renderizar los comentarios a la derecha
         loadCommentsForPost(postId);
 
-        // 3. Renderizar formulario según sesión
         if (AppState.currentUser) {
             formArea.innerHTML = `
                 <input type="text" id="comment-text-input" placeholder="Escribe tu chisme o respuesta sobre esta música..." autocomplete="off">
@@ -392,24 +538,17 @@ async function openCommentsModal(postId) {
                     <i class="fa-solid fa-paper-plane"></i>
                 </button>
             `;
-            
-            // Permitir enviar con Enter
             document.getElementById('comment-text-input').addEventListener('keypress', (e) => {
-                if (e.key === 'Enter') {
-                    submitComment(postId);
-                }
+                if (e.key === 'Enter') submitComment(postId);
             });
         } else {
             formArea.innerHTML = `
                 <div style="text-align: center; width:100%; color: var(--text-muted); font-size: 0.85rem; padding: 10px;">
-                    Deber <span class="setup-link" style="cursor:pointer;" onclick="openModal('modal-auth')">iniciar sesión</span> para unirte al chisme musical.
+                    Debes <span class="setup-link" style="cursor:pointer;" onclick="openModal('modal-auth')">iniciar sesión</span> para unirte al chisme musical.
                 </div>
             `;
         }
-        
-    } catch (error) {
-        console.error('Error al abrir modal comentarios:', error);
-    }
+    } catch (e) { console.error('Error modal comentarios:', e); }
 }
 
 async function loadCommentsForPost(postId) {
@@ -417,15 +556,15 @@ async function loadCommentsForPost(postId) {
     commentsList.innerHTML = '<div class="skeleton-list-item"></div>';
 
     try {
-        const response = await fetch(`api.php?action=get_comments&post_id=${postId}`);
-        const result = await response.json();
+        const res    = await fetch(`api.php?action=get_comments&post_id=${postId}`);
+        const result = await res.json();
 
         if (result.success && result.data && result.data.length > 0) {
             commentsList.innerHTML = '';
             result.data.forEach(comment => {
-                const commentItem = document.createElement('div');
-                commentItem.className = 'comment-item';
-                commentItem.innerHTML = `
+                const item = document.createElement('div');
+                item.className = 'comment-item';
+                item.innerHTML = `
                     <div class="comment-avatar">${comment.user_avatar}</div>
                     <div class="comment-content">
                         <div class="comment-header">
@@ -435,10 +574,8 @@ async function loadCommentsForPost(postId) {
                         <p class="comment-body">${escapeHTML(comment.comment_text)}</p>
                     </div>
                 `;
-                commentsList.appendChild(commentItem);
+                commentsList.appendChild(item);
             });
-            
-            // Desplazar al fondo del contenedor de comentarios
             commentsList.scrollTop = commentsList.scrollHeight;
         } else {
             commentsList.innerHTML = `
@@ -448,8 +585,7 @@ async function loadCommentsForPost(postId) {
                 </div>
             `;
         }
-    } catch (error) {
-        console.error('Error al cargar comentarios:', error);
+    } catch (e) {
         commentsList.innerHTML = '<div class="no-comments-msg">Error de conexión al cargar comentarios.</div>';
     }
 }
@@ -462,79 +598,82 @@ function handleCommentUserClick(userId) {
 async function submitComment(postId) {
     const input = document.getElementById('comment-text-input');
     const text = input.value.trim();
-
     if (!text) return;
 
     try {
-        const formData = new FormData();
-        formData.append('action', 'add_comment');
-        formData.append('post_id', postId);
-        formData.append('comment_text', text);
+        const fd = new FormData();
+        fd.append('action', 'add_comment');
+        fd.append('post_id', postId);
+        fd.append('comment_text', text);
 
-        const response = await fetch('api.php', {
-            method: 'POST',
-            body: formData
-        });
-        const result = await response.json();
+        const res    = await fetch('api.php', { method: 'POST', body: fd });
+        const result = await res.json();
 
         if (result.success) {
             input.value = '';
             showToast('¡Comentario publicado!', 'success');
-            
-            // Recargar comentarios del modal
             loadCommentsForPost(postId);
-            
-            // Recargar feeds en el fondo para actualizar contadores de comentarios
             loadFeed();
-            
-            // Si estamos en perfil, actualizar también
-            if (AppState.currentView === 'profile') {
-                loadProfileData(AppState.selectedProfileId);
-            }
+            if (AppState.currentView === 'profile') loadProfileData(AppState.selectedProfileId);
         } else {
             showToast(result.message, 'error');
         }
-    } catch (error) {
-        console.error('Error al enviar comentario:', error);
-    }
+    } catch (e) { console.error(e); }
 }
 
 // ==========================================
-// 6. PERFIL DE USUARIO Y CONFIGURACIÓN (AJAX)
+// 9. PERFIL DE USUARIO
 // ==========================================
 
 async function loadProfileData(userId) {
     try {
-        const response = await fetch(`api.php?action=get_profile&user_id=${userId}`);
-        const result = await response.json();
+        const res    = await fetch(`api.php?action=get_profile&user_id=${userId}`);
+        const result = await res.json();
 
         if (result.success && result.data) {
             const profile = result.data;
-            const user = profile.user;
+            const user    = profile.user;
 
-            // Renderizar datos del perfil
-            document.getElementById('profile-avatar').textContent = user.avatar || '🎧';
-            document.getElementById('profile-username').textContent = user.username;
-            document.getElementById('profile-joined').textContent = `Miembro desde: ${formatDate(user.created_at)}`;
-            document.getElementById('profile-bio').textContent = user.bio || 'Este usuario es un DJ silencioso sin biografía.';
-            
-            // Stats
+            document.getElementById('profile-avatar').textContent   = user.avatar || '🎧';
+            document.getElementById('profile-username').textContent  = user.username;
+            document.getElementById('profile-joined').textContent    = `Miembro desde: ${formatDate(user.created_at)}`;
+            document.getElementById('profile-bio').textContent       = user.bio || 'Este usuario es un DJ silencioso sin biografía.';
             document.getElementById('profile-followers-count').textContent = profile.followers_count;
             document.getElementById('profile-following-count').textContent = profile.following_count;
-            
-            // Nombre de sección de posts
             document.getElementById('profile-posts-user').textContent = user.username;
 
-            // Configurar botones de acciones
-            const followBtn = document.getElementById('profile-follow-btn');
-            const logoutBtn = document.getElementById('profile-logout-btn');
+            // Canción Insignia
+            const featuredArea  = document.getElementById('profile-featured-track-area');
+            const featuredEmbed = document.getElementById('profile-featured-track-embed');
+            if (user.featured_track) {
+                const match = user.featured_track.match(/spotify\.com\/(playlist|track|album)\/([a-zA-Z0-9]+)/i);
+                if (match) {
+                    featuredEmbed.innerHTML = `
+                        <iframe style="border-radius:12px"
+                                src="https://open.spotify.com/embed/${match[1]}/${match[2]}?utm_source=generator&theme=0"
+                                width="100%" height="80" frameBorder="0"
+                                allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
+                                loading="lazy">
+                        </iframe>`;
+                    featuredArea.style.display = 'block';
+                }
+            } else {
+                featuredArea.style.display = 'none';
+            }
+
+            // Botones de acción
+            const followBtn  = document.getElementById('profile-follow-btn');
+            const editBtn    = document.getElementById('profile-edit-btn');
+            const logoutBtn  = document.getElementById('profile-logout-btn');
 
             if (AppState.currentUser && parseInt(AppState.currentUser.id) === parseInt(user.id)) {
-                // Perfil propio
                 followBtn.style.display = 'none';
+                editBtn.style.display   = 'inline-flex';
                 logoutBtn.style.display = 'inline-flex';
+
+                editBtn.onclick = () => openEditProfileModal(user);
             } else {
-                // Perfil ajeno
+                editBtn.style.display   = 'none';
                 logoutBtn.style.display = 'none';
                 followBtn.style.display = 'inline-flex';
 
@@ -546,38 +685,20 @@ async function loadProfileData(userId) {
                     followBtn.innerHTML = '<i class="fa-solid fa-user-plus"></i> Seguir';
                 }
 
-                // Reinventar click handler de follow en perfil
                 followBtn.onclick = async () => {
-                    if (!AppState.currentUser) {
-                        showToast('Inicia sesión para seguir usuarios.', 'info');
-                        openModal('modal-auth');
-                        return;
-                    }
-                    
-                    try {
-                        const fd = new FormData();
-                        fd.append('action', 'toggle_follow');
-                        fd.append('user_id', user.id);
-
-                        const r = await fetch('api.php', { method: 'POST', body: fd });
-                        const res = await r.json();
-
-                        if (res.success) {
-                            showToast(res.message, 'success');
-                            loadProfileData(user.id);
-                        }
-                    } catch (e) {
-                        console.error(e);
-                    }
+                    if (!AppState.currentUser) { showToast('Inicia sesión para seguir usuarios.', 'info'); openModal('modal-auth'); return; }
+                    const fd = new FormData();
+                    fd.append('action', 'toggle_follow');
+                    fd.append('user_id', user.id);
+                    const r = await fetch('api.php', { method: 'POST', body: fd });
+                    const res = await r.json();
+                    if (res.success) { showToast(res.message, 'success'); loadProfileData(user.id); }
                 };
             }
 
-            // Cargar posts del usuario en el sub-feed
             loadUserPosts(user.id);
         }
-    } catch (error) {
-        console.error('Error al cargar perfil:', error);
-    }
+    } catch (e) { console.error('Error perfil:', e); }
 }
 
 async function loadUserPosts(userId) {
@@ -585,18 +706,13 @@ async function loadUserPosts(userId) {
     container.innerHTML = '<div class="skeleton-list-item"></div>';
 
     try {
-        const response = await fetch(`api.php?action=get_posts&user_id=${userId}`);
-        const result = await response.json();
+        const res    = await fetch(`api.php?action=get_posts&user_id=${userId}`);
+        const result = await res.json();
 
         if (result.success && result.data && result.data.length > 0) {
             container.innerHTML = '';
-            
-            // Actualizar contador del perfil
             document.getElementById('profile-posts-count').textContent = result.data.length;
-            
-            result.data.forEach(post => {
-                container.appendChild(renderPostCard(post));
-            });
+            result.data.forEach(post => container.appendChild(renderPostCard(post)));
         } else {
             document.getElementById('profile-posts-count').textContent = '0';
             container.innerHTML = `
@@ -607,67 +723,259 @@ async function loadUserPosts(userId) {
                 </div>
             `;
         }
-    } catch (error) {
-        console.error(error);
-        container.innerHTML = '<div class="feed-empty-state">Error al cargar publicaciones.</div>';
+    } catch (e) { container.innerHTML = '<div class="feed-empty-state">Error al cargar publicaciones.</div>'; }
+}
+
+// ==========================================
+// 10. EDITAR PERFIL
+// ==========================================
+
+function openEditProfileModal(user) {
+    // Pre-rellenar formulario
+    const bioInput = document.getElementById('edit-bio');
+    if (bioInput) bioInput.value = user.bio || '';
+
+    const featInput = document.getElementById('edit-featured-track');
+    if (featInput) featInput.value = user.featured_track || '';
+
+    // Seleccionar avatar actual
+    const radios = document.querySelectorAll('input[name="edit-avatar"]');
+    radios.forEach(r => { r.checked = (r.value === user.avatar); });
+
+    openModal('modal-edit-profile');
+}
+
+async function handleEditProfileSubmit(event) {
+    event.preventDefault();
+    const bioInput    = document.getElementById('edit-bio');
+    const featInput   = document.getElementById('edit-featured-track');
+    const avatarInput = document.querySelector('input[name="edit-avatar"]:checked');
+    const errorMsg    = document.getElementById('edit-profile-error-msg');
+    errorMsg.style.display = 'none';
+
+    try {
+        const fd = new FormData();
+        fd.append('action', 'update_profile');
+        fd.append('bio', bioInput.value.trim());
+        fd.append('avatar', avatarInput ? avatarInput.value : '🎧');
+        fd.append('featured_track', featInput.value.trim());
+
+        const res    = await fetch('api.php', { method: 'POST', body: fd });
+        const result = await res.json();
+
+        if (result.success) {
+            showToast(result.message, 'success');
+            closeModal('modal-edit-profile');
+            // Actualizar avatar en header
+            if (AppState.currentUser) {
+                AppState.currentUser.avatar = avatarInput ? avatarInput.value : '🎧';
+                renderUserHeader(AppState.currentUser);
+            }
+            loadProfileData(AppState.currentUser.id);
+        } else {
+            errorMsg.textContent    = result.message;
+            errorMsg.style.display  = 'block';
+        }
+    } catch (e) {
+        errorMsg.textContent   = 'Error de conexión al guardar.';
+        errorMsg.style.display = 'block';
     }
 }
 
 // ==========================================
-// 7. REPRODUCTOR INTEGRADO DE SPOTIFY
+// 11. REPRODUCTOR DE SPOTIFY + COLA
 // ==========================================
 
 function playMusic(spotifyId, type, title, category) {
-    const playerBar = document.getElementById('floating-player');
-    const embedWrapper = document.getElementById('player-embed-wrapper');
-    const waves = document.getElementById('audio-waves-visualizer');
-    
-    // Títulos de visualización
-    document.getElementById('player-title').textContent = title;
+    const playerBar     = document.getElementById('floating-player');
+    const embedWrapper  = document.getElementById('player-embed-wrapper');
+    const waves         = document.getElementById('audio-waves-visualizer');
+
+    document.getElementById('player-title').textContent    = title;
     document.getElementById('player-category').textContent = `#${category}`;
-    
-    // Generar el Iframe oficial de Spotify
-    // Tipo: track, playlist, album
-    // URL: https://open.spotify.com/embed/{type}/{id}?utm_source=generator&theme=0 (theme 0 es tema oscuro)
+
     embedWrapper.innerHTML = `
-        <iframe style="border-radius:12px" 
-                src="https://open.spotify.com/embed/${type}/${spotifyId}?utm_source=generator&theme=0" 
-                width="100%" 
-                height="80" 
-                frameBorder="0" 
-                allowfullscreen="" 
-                allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" 
+        <iframe style="border-radius:12px"
+                src="https://open.spotify.com/embed/${type}/${spotifyId}?utm_source=generator&theme=0"
+                width="100%" height="80" frameBorder="0"
+                allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
                 loading="lazy">
         </iframe>
     `;
 
-    // Hacer visible el reproductor con animación
     playerBar.style.display = 'flex';
-    waves.style.display = 'flex';
-    
-    showToast(`Reproduciendo chisme de canal #${category} 🎧`, 'info');
+    waves.style.display     = 'flex';
+    showToast(`Reproduciendo en canal #${category} 🎧`, 'info');
+}
+
+// Cola de reproducción
+function addToQueue(spotifyId, type, title, category) {
+    AppState.playbackQueue.push({ spotifyId, type, title, category });
+    updateQueueUI();
+    showToast(`"${title}" añadido a la cola 🎵`, 'success');
+}
+
+function updateQueueUI() {
+    const badge  = document.getElementById('queue-count-badge');
+    const list   = document.getElementById('queue-list');
+    const count  = AppState.playbackQueue.length;
+
+    if (badge) {
+        badge.textContent    = count;
+        badge.style.display  = count > 0 ? 'flex' : 'none';
+    }
+
+    if (!list) return;
+
+    if (count === 0) {
+        list.innerHTML = `
+            <div class="queue-empty">
+                <i class="fa-solid fa-music"></i>
+                <p>La cola está vacía.<br>Añade canciones desde el feed.</p>
+            </div>
+        `;
+        return;
+    }
+
+    list.innerHTML = '';
+    AppState.playbackQueue.forEach((item, idx) => {
+        const el = document.createElement('div');
+        el.className = 'queue-item' + (idx === AppState.currentQueueIndex ? ' playing' : '');
+        el.innerHTML = `
+            <span class="queue-num">${idx + 1}</span>
+            <div class="queue-item-info">
+                <span class="queue-item-title">${escapeHTML(item.title)}</span>
+                <span class="queue-item-cat">#${escapeHTML(item.category)}</span>
+            </div>
+            <div class="queue-item-actions">
+                <button onclick="playFromQueue(${idx})" title="Reproducir"><i class="fa-solid fa-play"></i></button>
+                <button onclick="removeFromQueue(${idx})" title="Quitar"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+        `;
+        list.appendChild(el);
+    });
+}
+
+function playFromQueue(idx) {
+    if (idx < 0 || idx >= AppState.playbackQueue.length) return;
+    AppState.currentQueueIndex = idx;
+    const item = AppState.playbackQueue[idx];
+    playMusic(item.spotifyId, item.type, item.title, item.category);
+    updateQueueUI();
+}
+
+function removeFromQueue(idx) {
+    AppState.playbackQueue.splice(idx, 1);
+    if (AppState.currentQueueIndex >= idx) AppState.currentQueueIndex--;
+    updateQueueUI();
 }
 
 // ==========================================
-// 8. TENDENCIAS Y RANKINGS (LATERALES)
+// 12. CHAT EN VIVO ("EL CHISMÓGRAFO")
+// ==========================================
+
+function renderChatInput() {
+    const area = document.getElementById('chat-input-area');
+    if (!area) return;
+
+    if (AppState.currentUser) {
+        area.innerHTML = `
+            <input type="text" id="chat-msg-input" class="chat-text-input" placeholder="Escribe un chisme..." maxlength="300" autocomplete="off">
+            <button class="btn-send-chat" id="btn-send-chat" title="Enviar">
+                <i class="fa-solid fa-paper-plane"></i>
+            </button>
+        `;
+        const input = document.getElementById('chat-msg-input');
+        const btn   = document.getElementById('btn-send-chat');
+        const send  = () => sendChatMessage();
+        btn.addEventListener('click', send);
+        input.addEventListener('keypress', (e) => { if (e.key === 'Enter') send(); });
+    } else {
+        area.innerHTML = `
+            <div class="chat-login-prompt">
+                <span onclick="openModal('modal-auth')" style="cursor:pointer; color: var(--chisme-green);">Inicia sesión</span> para chatear
+            </div>
+        `;
+    }
+}
+
+async function sendChatMessage() {
+    const input = document.getElementById('chat-msg-input');
+    if (!input) return;
+    const msg = input.value.trim();
+    if (!msg) return;
+
+    input.value = '';
+    try {
+        const fd = new FormData();
+        fd.append('action', 'send_chat_message');
+        fd.append('message', msg);
+        await fetch('api.php', { method: 'POST', body: fd });
+        await pollChat(true); // forzar recarga inmediata
+    } catch (e) { console.error('Error enviando chat:', e); }
+}
+
+async function pollChat(forceScroll = false) {
+    try {
+        const res    = await fetch(`api.php?action=get_chat_messages&since_id=${AppState.chatLastId}`);
+        const result = await res.json();
+
+        if (!result.success || !result.data || result.data.length === 0) return;
+
+        const container = document.getElementById('chat-messages-list');
+        if (!container) return;
+
+        // Limpiar placeholder inicial
+        const placeholder = container.querySelector('.chat-placeholder');
+        if (placeholder) placeholder.remove();
+
+        const wasAtBottom = container.scrollHeight - container.clientHeight - container.scrollTop < 60;
+
+        result.data.forEach(msg => {
+            if (parseInt(msg.id) > AppState.chatLastId) {
+                AppState.chatLastId = parseInt(msg.id);
+            }
+            const isMe  = AppState.currentUser && AppState.currentUser.username === msg.username;
+            const item  = document.createElement('div');
+            item.className = `chat-msg ${isMe ? 'chat-msg-me' : ''}`;
+            item.innerHTML = `
+                <span class="chat-msg-avatar">${msg.avatar}</span>
+                <div class="chat-msg-bubble">
+                    ${!isMe ? `<span class="chat-msg-user">${escapeHTML(msg.username)}</span>` : ''}
+                    <span class="chat-msg-text">${escapeHTML(msg.message)}</span>
+                </div>
+            `;
+            container.appendChild(item);
+        });
+
+        if (wasAtBottom || forceScroll) {
+            container.scrollTop = container.scrollHeight;
+        }
+    } catch (e) { /* silencioso */ }
+}
+
+function startChatPolling() {
+    pollChat(true);
+    AppState.chatInterval = setInterval(() => pollChat(), 4000);
+}
+
+// ==========================================
+// 13. RANKINGS Y TENDENCIAS
 // ==========================================
 
 async function loadRankings() {
     const container = document.getElementById('rankings-container');
     if (!container) return;
-
     try {
-        const response = await fetch('api.php?action=get_rankings');
-        const result = await response.json();
-
+        const res    = await fetch('api.php?action=get_rankings');
+        const result = await res.json();
         if (result.success && result.data && result.data.length > 0) {
             container.innerHTML = '';
             result.data.forEach((rank, index) => {
-                const posClass = `pos-${index + 1}`;
                 const item = document.createElement('div');
                 item.className = 'ranking-item';
                 item.innerHTML = `
-                    <div class="ranking-position ${posClass}">${index + 1}</div>
+                    <div class="ranking-position pos-${index + 1}">${index + 1}</div>
                     <div class="ranking-details">
                         <h4 class="ranking-title" onclick="openCommentsModal(${rank.id})">${escapeHTML(rank.title)}</h4>
                         <span class="ranking-creator">por @${escapeHTML(rank.username)}</span>
@@ -681,56 +989,38 @@ async function loadRankings() {
         } else {
             container.innerHTML = '<p style="color:var(--text-muted); font-size:0.8rem; text-align:center;">Sin rankings esta semana</p>';
         }
-    } catch (error) {
-        console.error('Error al cargar rankings:', error);
-    }
+    } catch (e) { console.error('Error rankings:', e); }
 }
 
 async function loadTrends() {
     const container = document.getElementById('trends-container');
     if (!container) return;
-
     try {
-        const response = await fetch('api.php?action=get_trends');
-        const result = await response.json();
-
+        const res    = await fetch('api.php?action=get_trends');
+        const result = await res.json();
         if (result.success && result.data && result.data.length > 0) {
             container.innerHTML = '';
             result.data.forEach(trend => {
                 const btn = document.createElement('button');
                 btn.className = 'trend-tag-btn';
                 btn.innerHTML = `#${escapeHTML(trend.name)} <span style="font-weight:400; opacity:0.65;">(${trend.posts_count})</span>`;
-                btn.addEventListener('click', () => {
-                    // Filtrar por esta categoría
-                    selectCategory(trend.name);
-                });
+                btn.addEventListener('click', () => selectCategory(trend.name));
                 container.appendChild(btn);
             });
         }
-    } catch (error) {
-        console.error('Error al cargar tendencias:', error);
-    }
+    } catch (e) { console.error('Error tendencias:', e); }
 }
 
-// Filtro de categorías rápido
 function selectCategory(categoryName) {
     AppState.currentCategory = categoryName;
 
-    // Cambiar clases activas en sidebar
-    const pills = document.querySelectorAll('.category-pill');
-    pills.forEach(pill => {
-        if (pill.getAttribute('data-category') === categoryName) {
-            pill.classList.add('active');
-        } else {
-            pill.classList.remove('active');
-        }
+    document.querySelectorAll('.category-pill-genre').forEach(pill => {
+        pill.classList.toggle('active', pill.getAttribute('data-category') === categoryName);
     });
 
-    // Actualizar título del feed central
     const feedTitle = document.getElementById('feed-title');
     feedTitle.textContent = categoryName ? `Canal #${categoryName}` : 'Explorar Chismes';
 
-    // Regresar al feed si estamos en perfil
     if (AppState.currentView !== 'feed') {
         switchView('feed');
     } else {
@@ -738,240 +1028,192 @@ function selectCategory(categoryName) {
     }
 }
 
+function selectSpotifyType(type) {
+    AppState.currentSpotifyType = type;
+    document.querySelectorAll('.category-pill').forEach(pill => {
+        pill.classList.toggle('active', pill.getAttribute('data-spotify-type') === type);
+    });
+    loadFeed();
+}
+
 // ==========================================
-// 9. FORMULARIOS DE REGISTRO / LOGIN / POSTS
+// 14. FORMULARIOS AUTH / CREATE POST
 // ==========================================
 
 async function handleLoginSubmit(event) {
     event.preventDefault();
-    const usernameInput = document.getElementById('login-username');
-    const passwordInput = document.getElementById('login-password');
-    const errorMsg = document.getElementById('auth-error-msg');
-
-    errorMsg.style.display = 'none';
+    const uInput  = document.getElementById('login-username');
+    const pInput  = document.getElementById('login-password');
+    const errMsg  = document.getElementById('auth-error-msg');
+    errMsg.style.display = 'none';
 
     try {
-        const formData = new FormData();
-        formData.append('action', 'login');
-        formData.append('username', usernameInput.value.trim());
-        formData.append('password', passwordInput.value.trim());
+        const fd = new FormData();
+        fd.append('action', 'login');
+        fd.append('username', uInput.value.trim());
+        fd.append('password', pInput.value.trim());
 
-        const response = await fetch('api.php', {
-            method: 'POST',
-            body: formData
-        });
-        const result = await response.json();
+        const res    = await fetch('api.php', { method: 'POST', body: fd });
+        const result = await res.json();
 
         if (result.success) {
             showToast(result.message, 'success');
-            usernameInput.value = '';
-            passwordInput.value = '';
+            uInput.value = ''; pInput.value = '';
             closeModal('modal-auth');
-            
-            // Recargar estado
             await fetchSession();
             loadFeed();
             loadRankings();
         } else {
-            errorMsg.textContent = result.message;
-            errorMsg.style.display = 'block';
+            errMsg.textContent   = result.message;
+            errMsg.style.display = 'block';
         }
-    } catch (error) {
-        console.error(error);
-        errorMsg.textContent = 'Error de conexión con el servidor.';
-        errorMsg.style.display = 'block';
+    } catch (e) {
+        errMsg.textContent   = 'Error de conexión con el servidor.';
+        errMsg.style.display = 'block';
     }
 }
 
 async function handleRegisterSubmit(event) {
     event.preventDefault();
-    
-    const usernameInput = document.getElementById('register-username');
-    const passwordInput = document.getElementById('register-password');
-    const avatarInput = document.querySelector('input[name="avatar"]:checked');
-    const bioInput = document.getElementById('register-bio');
-    const errorMsg = document.getElementById('auth-error-msg');
-
-    errorMsg.style.display = 'none';
+    const uInput    = document.getElementById('register-username');
+    const pInput    = document.getElementById('register-password');
+    const aInput    = document.querySelector('input[name="avatar"]:checked');
+    const bioInput  = document.getElementById('register-bio');
+    const errMsg    = document.getElementById('auth-error-msg');
+    errMsg.style.display = 'none';
 
     try {
-        const formData = new FormData();
-        formData.append('action', 'register');
-        formData.append('username', usernameInput.value.trim());
-        formData.append('password', passwordInput.value.trim());
-        formData.append('avatar', avatarInput ? avatarInput.value : '🎧');
-        formData.append('bio', bioInput.value.trim());
+        const fd = new FormData();
+        fd.append('action', 'register');
+        fd.append('username', uInput.value.trim());
+        fd.append('password', pInput.value.trim());
+        fd.append('avatar', aInput ? aInput.value : '🎧');
+        fd.append('bio', bioInput.value.trim());
 
-        const response = await fetch('api.php', {
-            method: 'POST',
-            body: formData
-        });
-        const result = await response.json();
+        const res    = await fetch('api.php', { method: 'POST', body: fd });
+        const result = await res.json();
 
         if (result.success) {
             showToast(result.message, 'success');
-            usernameInput.value = '';
-            passwordInput.value = '';
-            bioInput.value = '';
+            uInput.value = ''; pInput.value = ''; bioInput.value = '';
             closeModal('modal-auth');
-            
-            // Recargar estado
             await fetchSession();
             loadFeed();
         } else {
-            errorMsg.textContent = result.message;
-            errorMsg.style.display = 'block';
+            errMsg.textContent   = result.message;
+            errMsg.style.display = 'block';
         }
-    } catch (error) {
-        console.error(error);
-        errorMsg.textContent = 'Error de conexión en el registro.';
-        errorMsg.style.display = 'block';
+    } catch (e) {
+        errMsg.textContent   = 'Error de conexión en el registro.';
+        errMsg.style.display = 'block';
     }
 }
 
 async function handleCreatePostSubmit(event) {
     event.preventDefault();
-    
-    const spotifyUrlInput = document.getElementById('post-spotify-url');
-    const titleInput = document.getElementById('post-title');
-    const categorySelect = document.getElementById('post-category');
-    const chismeInput = document.getElementById('post-chisme');
-    const errorMsg = document.getElementById('post-error-msg');
-
-    errorMsg.style.display = 'none';
+    const spotifyInput  = document.getElementById('post-spotify-url');
+    const titleInput    = document.getElementById('post-title');
+    const categoryInput = document.getElementById('post-category');
+    const chismeInput   = document.getElementById('post-chisme');
+    const errMsg        = document.getElementById('post-error-msg');
+    errMsg.style.display = 'none';
 
     try {
-        const formData = new FormData();
-        formData.append('action', 'create_post');
-        formData.append('spotify_url', spotifyUrlInput.value.trim());
-        formData.append('title', titleInput.value.trim());
-        formData.append('category', categorySelect.value);
-        formData.append('chisme', chismeInput.value.trim());
+        const fd = new FormData();
+        fd.append('action', 'create_post');
+        fd.append('spotify_url', spotifyInput.value.trim());
+        fd.append('title', titleInput.value.trim());
+        fd.append('category', categoryInput.value);
+        fd.append('chisme', chismeInput.value.trim());
 
-        const response = await fetch('api.php', {
-            method: 'POST',
-            body: formData
-        });
-        const result = await response.json();
+        const res    = await fetch('api.php', { method: 'POST', body: fd });
+        const result = await res.json();
 
         if (result.success) {
             showToast(result.message, 'success');
-            
-            // Limpiar formulario
-            spotifyUrlInput.value = '';
-            titleInput.value = '';
-            chismeInput.value = '';
+            spotifyInput.value = ''; titleInput.value = ''; chismeInput.value = '';
             document.getElementById('chisme-char-count').textContent = '0';
-            
             closeModal('modal-create-post');
-            
-            // Forzar volver al feed de "Todos" recientes para ver la publicación
-            AppState.currentCategory = '';
+            AppState.currentCategory    = '';
+            AppState.currentSpotifyType = '';
             selectCategory('');
             switchView('feed');
-            loadFeed();
-            loadRankings();
-            loadTrends();
+            loadFeed(); loadRankings(); loadTrends();
         } else {
-            errorMsg.textContent = result.message;
-            errorMsg.style.display = 'block';
+            errMsg.textContent   = result.message;
+            errMsg.style.display = 'block';
         }
-    } catch (error) {
-        console.error(error);
-        errorMsg.textContent = 'Error de comunicación al publicar.';
-        errorMsg.style.display = 'block';
+    } catch (e) {
+        errMsg.textContent   = 'Error de comunicación al publicar.';
+        errMsg.style.display = 'block';
     }
 }
 
 // ==========================================
-// 10. VINDO DE EVENTOS Y EFECTOS UI
+// 15. BINDING DE EVENTOS
 // ==========================================
 
 function bindEventEvents() {
-    // Logo Click -> Vuelve al inicio
+    // Logo
     document.getElementById('nav-home-logo').addEventListener('click', () => {
-        AppState.currentCategory = '';
-        AppState.currentSearch = '';
-        document.getElementById('search-input').value = '';
+        AppState.currentCategory    = '';
+        AppState.currentSpotifyType = '';
+        AppState.currentSearch      = '';
+        document.getElementById('search-input').value     = '';
         document.getElementById('search-clear-btn').style.display = 'none';
         selectCategory('');
         switchView('feed');
     });
 
-    // Botones de Navegación Lateral
+    // Navegación lateral
     document.getElementById('btn-nav-feed').addEventListener('click', () => {
         AppState.currentFilter = 'recent';
-        document.getElementById('tab-recent').classList.add('active');
-        document.getElementById('tab-popular').classList.remove('active');
+        setActiveTab('tab-recent');
         switchView('feed');
     });
-    
     document.getElementById('btn-nav-trending').addEventListener('click', () => {
         AppState.currentFilter = 'trending';
-        document.getElementById('tab-recent').classList.remove('active');
-        document.getElementById('tab-popular').classList.add('active');
+        setActiveTab('tab-popular');
         switchView('feed');
     });
-
+    document.getElementById('btn-nav-following').addEventListener('click', () => {
+        AppState.currentFilter = 'following';
+        setActiveTab('tab-following');
+        switchView('feed');
+    });
     document.getElementById('btn-nav-create-post').addEventListener('click', () => {
-        if (!AppState.currentUser) {
-            showToast('Debes iniciar sesión para publicar un chisme musical.', 'info');
-            openModal('modal-auth');
-        } else {
-            openModal('modal-create-post');
-        }
+        if (!AppState.currentUser) { showToast('Debes iniciar sesión para publicar un chisme musical.', 'info'); openModal('modal-auth'); }
+        else openModal('modal-create-post');
     });
-
     document.getElementById('btn-nav-profile').addEventListener('click', () => {
-        if (AppState.currentUser) {
-            switchView('profile', AppState.currentUser.id);
-        }
+        if (AppState.currentUser) switchView('profile', AppState.currentUser.id);
     });
 
-    // Feed Tabs (Reciente vs Más Votados)
-    document.getElementById('tab-recent').addEventListener('click', (e) => {
-        AppState.currentFilter = 'recent';
-        e.target.classList.add('active');
-        document.getElementById('tab-popular').classList.remove('active');
-        loadFeed();
+    // Feed tabs
+    document.getElementById('tab-recent').addEventListener('click', () => { AppState.currentFilter = 'recent'; setActiveTab('tab-recent'); loadFeed(); });
+    document.getElementById('tab-popular').addEventListener('click', () => { AppState.currentFilter = 'trending'; setActiveTab('tab-popular'); loadFeed(); });
+    document.getElementById('tab-following').addEventListener('click', () => { AppState.currentFilter = 'following'; setActiveTab('tab-following'); loadFeed(); });
+
+    // Filtros de formato Spotify (sidebar)
+    document.querySelectorAll('.category-pill[data-spotify-type]').forEach(btn => {
+        btn.addEventListener('click', () => selectSpotifyType(btn.getAttribute('data-spotify-type')));
     });
 
-    document.getElementById('tab-popular').addEventListener('click', (e) => {
-        AppState.currentFilter = 'trending';
-        e.target.classList.add('active');
-        document.getElementById('tab-recent').classList.remove('active');
-        loadFeed();
+    // Filtros de categoría/género
+    document.querySelectorAll('.category-pill-genre').forEach(btn => {
+        btn.addEventListener('click', () => selectCategory(btn.getAttribute('data-category')));
     });
 
-    // Filtros de Categorías
-    const categoryButtons = document.querySelectorAll('.category-pill');
-    categoryButtons.forEach(btn => {
-        btn.addEventListener('click', (e) => {
-            const cat = e.currentTarget.getAttribute('data-category');
-            selectCategory(cat);
-        });
-    });
-
-    // Buscador en tiempo real con Debounce (300ms)
-    const searchInput = document.getElementById('search-input');
+    // Buscador
+    const searchInput   = document.getElementById('search-input');
     const clearSearchBtn = document.getElementById('search-clear-btn');
-    
     searchInput.addEventListener('input', (e) => {
         const query = e.target.value.trim();
         AppState.currentSearch = query;
-
-        if (query) {
-            clearSearchBtn.style.display = 'block';
-        } else {
-            clearSearchBtn.style.display = 'none';
-        }
-
+        clearSearchBtn.style.display = query ? 'block' : 'none';
         clearTimeout(AppState.searchTimeout);
-        AppState.searchTimeout = setTimeout(() => {
-            loadFeed();
-        }, 350);
+        AppState.searchTimeout = setTimeout(() => loadFeed(), 350);
     });
-
     clearSearchBtn.addEventListener('click', () => {
         searchInput.value = '';
         AppState.currentSearch = '';
@@ -979,121 +1221,112 @@ function bindEventEvents() {
         loadFeed();
     });
 
-    // Modales Cierres
-    document.getElementById('btn-close-modal-auth').addEventListener('click', () => closeModal('modal-auth'));
-    document.getElementById('btn-close-modal-create').addEventListener('click', () => closeModal('modal-create-post'));
+    // Cerrar modales
+    document.getElementById('btn-close-modal-auth').addEventListener('click',     () => closeModal('modal-auth'));
+    document.getElementById('btn-close-modal-create').addEventListener('click',   () => closeModal('modal-create-post'));
     document.getElementById('btn-close-modal-comments').addEventListener('click', () => closeModal('modal-comments'));
+    document.getElementById('btn-close-modal-edit').addEventListener('click',     () => closeModal('modal-edit-profile'));
 
-    // Pestañas del Modal Auth (Login vs Registro)
-    document.getElementById('tab-login-btn').addEventListener('click', (e) => {
+    // Auth tabs
+    document.getElementById('tab-login-btn').addEventListener('click', () => {
         document.getElementById('tab-login-btn').classList.add('active');
         document.getElementById('tab-register-btn').classList.remove('active');
         document.getElementById('form-login').classList.add('active');
         document.getElementById('form-register').classList.remove('active');
     });
-
-    document.getElementById('tab-register-btn').addEventListener('click', (e) => {
+    document.getElementById('tab-register-btn').addEventListener('click', () => {
         document.getElementById('tab-register-btn').classList.add('active');
         document.getElementById('tab-login-btn').classList.remove('active');
         document.getElementById('form-register').classList.add('active');
         document.getElementById('form-login').classList.remove('active');
     });
 
-    // Envíos de Formularios
-    document.getElementById('form-login').addEventListener('submit', handleLoginSubmit);
-    document.getElementById('form-register').addEventListener('submit', handleRegisterSubmit);
-    document.getElementById('form-create-post').addEventListener('submit', handleCreatePostSubmit);
+    // Formularios
+    document.getElementById('form-login').addEventListener('submit',         handleLoginSubmit);
+    document.getElementById('form-register').addEventListener('submit',      handleRegisterSubmit);
+    document.getElementById('form-create-post').addEventListener('submit',   handleCreatePostSubmit);
+    document.getElementById('form-edit-profile').addEventListener('submit',  handleEditProfileSubmit);
 
-    // Logout en perfil
+    // Logout
     document.getElementById('profile-logout-btn').addEventListener('click', async () => {
-        try {
-            const response = await fetch('api.php?action=logout');
-            const result = await response.json();
-            if (result.success) {
-                showToast('Has cerrado sesión.', 'info');
-                await fetchSession();
-                switchView('feed');
-            }
-        } catch (error) {
-            console.error(error);
+        const res = await fetch('api.php?action=logout');
+        const r   = await res.json();
+        if (r.success) {
+            showToast('Has cerrado sesión.', 'info');
+            AppState.currentUser = null;
+            clearInterval(AppState.notifInterval);
+            await fetchSession();
+            switchView('feed');
         }
     });
 
-    // Contador de Caracteres en el Textarea del Chisme
-    const chismeTextarea = document.getElementById('post-chisme');
-    chismeTextarea.addEventListener('input', (e) => {
-        const len = e.target.value.length;
-        document.getElementById('chisme-char-count').textContent = len;
+    // Contador de caracteres
+    document.getElementById('post-chisme').addEventListener('input', (e) => {
+        document.getElementById('chisme-char-count').textContent = e.target.value.length;
     });
 
-    // Reproductor - Cerrar
+    // Reproductor – Cerrar
     document.getElementById('btn-close-player').addEventListener('click', () => {
-        const playerBar = document.getElementById('floating-player');
-        const embedWrapper = document.getElementById('player-embed-wrapper');
-        
-        embedWrapper.innerHTML = '';
-        playerBar.style.display = 'none';
+        document.getElementById('player-embed-wrapper').innerHTML = '';
+        document.getElementById('floating-player').style.display  = 'none';
     });
 
-    // Limpiar errores cuando los modales de Bootstrap se ocultan
-    const modalAuth = document.getElementById('modal-auth');
-    if (modalAuth) {
-        modalAuth.addEventListener('hidden.bs-modal', () => {
-            const authError = document.getElementById('auth-error-msg');
-            if (authError) authError.style.display = 'none';
-        });
-    }
-    const modalCreatePost = document.getElementById('modal-create-post');
-    if (modalCreatePost) {
-        modalCreatePost.addEventListener('hidden.bs-modal', () => {
-            const postError = document.getElementById('post-error-msg');
-            if (postError) postError.style.display = 'none';
-        });
-    }
+    // Cola de reproducción – Toggle panel
+    document.getElementById('btn-queue-toggle').addEventListener('click', () => {
+        const panel = document.getElementById('queue-panel');
+        panel.style.display = panel.style.display === 'none' ? 'flex' : 'none';
+    });
+
+    // Limpiar cola
+    document.getElementById('btn-clear-queue').addEventListener('click', () => {
+        AppState.playbackQueue     = [];
+        AppState.currentQueueIndex = -1;
+        updateQueueUI();
+        showToast('Cola limpiada.', 'info');
+    });
+
+    // Limpiar errores al cerrar modales
+    ['modal-auth', 'modal-create-post', 'modal-edit-profile'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) {
+            el.addEventListener('hidden.bs.modal', () => {
+                el.querySelectorAll('.error-msg').forEach(e => e.style.display = 'none');
+            });
+        }
+    });
 }
 
 // ==========================================
-// 11. HELPERS Y FUNCIONES DE SOPORTE (UI)
+// 16. HELPERS UI
 // ==========================================
 
+function setActiveTab(tabId) {
+    ['tab-recent','tab-popular','tab-following'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.classList.toggle('active', el.id === tabId);
+    });
+}
+
 function openModal(modalId) {
-    const modalEl = document.getElementById(modalId);
-    if (modalEl) {
-        const bsModal = bootstrap.Modal.getOrCreateInstance(modalEl);
-        bsModal.show();
-    }
+    const el = document.getElementById(modalId);
+    if (el) bootstrap.Modal.getOrCreateInstance(el).show();
 }
 
 function closeModal(modalId) {
-    const modalEl = document.getElementById(modalId);
-    if (modalEl) {
-        const bsModal = bootstrap.Modal.getInstance(modalEl);
-        if (bsModal) {
-            bsModal.hide();
-        }
-    }
+    const el = document.getElementById(modalId);
+    if (el) { const m = bootstrap.Modal.getInstance(el); if (m) m.hide(); }
 }
 
 function showToast(message, type = 'success') {
     const toastEl = document.getElementById('toast-notify');
     if (!toastEl) return;
-    
-    const bodyText = document.getElementById('toast-body-text');
-    if (bodyText) bodyText.textContent = message;
-    
-    // Limpiar clases de color de Bootstrap
+    const body = document.getElementById('toast-body-text');
+    if (body) body.textContent = message;
     toastEl.classList.remove('bg-success', 'bg-danger', 'bg-info', 'text-white');
-    
-    if (type === 'success') {
-        toastEl.classList.add('bg-success', 'text-white');
-    } else if (type === 'error') {
-        toastEl.classList.add('bg-danger', 'text-white');
-    } else {
-        toastEl.classList.add('bg-info', 'text-white');
-    }
-    
-    const bsToast = bootstrap.Toast.getOrCreateInstance(toastEl, { delay: 3500 });
-    bsToast.show();
+    if (type === 'success') toastEl.classList.add('bg-success', 'text-white');
+    else if (type === 'error') toastEl.classList.add('bg-danger', 'text-white');
+    else toastEl.classList.add('bg-info', 'text-white');
+    bootstrap.Toast.getOrCreateInstance(toastEl, { delay: 3500 }).show();
 }
 
 function renderSkeletonLoader(container) {
@@ -1119,37 +1352,20 @@ function renderSkeletonLoader(container) {
     `;
 }
 
-// Formatear fecha legible
 function formatDate(dateString) {
     if (!dateString) return '';
-    const date = new Date(dateString.replace(/-/g, "/"));
-    
-    const options = { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' };
-    return date.toLocaleDateString('es-ES', options);
+    const date = new Date(dateString.replace(/-/g, '/'));
+    return date.toLocaleDateString('es-ES', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
 }
 
-// Escapar HTML para prevenir XSS
 function escapeHTML(str) {
     if (!str) return '';
-    return str.replace(/[&<>'"]/g, 
-        tag => ({
-            '&': '&amp;',
-            '<': '&lt;',
-            '>': '&gt;',
-            "'": '&#39;',
-            '"': '&quot;'
-        }[tag] || tag)
-    );
+    return str.replace(/[&<>'"]/g, tag => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[tag] || tag));
 }
 
 function handleSharePost(title, postId) {
     const shareUrl = window.location.origin + window.location.pathname + `?post=${postId}`;
-    
-    // Copiar al portapapeles
-    navigator.clipboard.writeText(shareUrl).then(() => {
-        showToast('¡Enlace de chisme copiado al portapapeles! 📋🔗', 'success');
-    }).catch(err => {
-        console.error('Error al copiar enlace:', err);
-        showToast('No se pudo copiar el enlace automáticamente.', 'error');
-    });
+    navigator.clipboard.writeText(shareUrl)
+        .then(() => showToast('¡Enlace de chisme copiado al portapapeles! 📋🔗', 'success'))
+        .catch(() => showToast('No se pudo copiar el enlace automáticamente.', 'error'));
 }
