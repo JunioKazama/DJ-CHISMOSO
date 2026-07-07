@@ -22,7 +22,7 @@ define('DB_NAME', 'u310445577_DJ_CHISMOSO');    // Reemplaza por el nombre de la
 // Configuración de Spotify OAuth
 define('SPOTIFY_CLIENT_ID', '406e0399bfbe4e8d83130c8137994e09'); // Reemplazar con el Client ID de Spotify
 define('SPOTIFY_CLIENT_SECRET', 'cac4ba1cffa1490d890553a1a91667a2'); // Reemplazar con el Client Secret de Spotify
-define('SPOTIFY_REDIRECT_URI', 'https://quirozweb.com/api.php?action=spotify_callback');
+define('SPOTIFY_REDIRECT_URI', 'https://quirozweb.com/');
 
 // Conexión PDO a la Base de Datos
 $pdo = null;
