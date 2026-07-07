@@ -44,13 +44,80 @@ const REACTION_MAP = {
 document.addEventListener('DOMContentLoaded', () => { AppInit(); });
 
 function AppInit() {
+    checkUrlParams();
     fetchSession();
     loadFeed();
     loadRankings();
     loadTrends();
     bindEventEvents();
     startChatPolling();
+    
+    // Bind Spotify Link/Unlink buttons
+    const btnLink = document.getElementById('btn-link-spotify');
+    if (btnLink) {
+        btnLink.addEventListener('click', async () => {
+            try {
+                const res = await fetch('api.php?action=spotify_login');
+                const data = await res.json();
+                if (data.success && data.data && data.data.url) {
+                    window.location.href = data.data.url;
+                } else {
+                    showToast(data.message, 'error');
+                }
+            } catch (e) {
+                console.error(e);
+                showToast('Error al conectar con Spotify', 'error');
+            }
+        });
+    }
+
+    const btnUnlink = document.getElementById('btn-unlink-spotify');
+    if (btnUnlink) {
+        btnUnlink.addEventListener('click', async () => {
+            if(!confirm('¿Estás seguro de que quieres desvincular tu cuenta de Spotify?')) return;
+            try {
+                const res = await fetch('api.php', { method: 'POST', body: new URLSearchParams({ action: 'unlink_spotify' }) });
+                const data = await res.json();
+                if (data.success) {
+                    showToast(data.message, 'success');
+                    if (AppState.currentUser) {
+                        AppState.currentUser.spotify_account_id = null;
+                        openEditProfileModal(AppState.currentUser);
+                        loadProfileData(AppState.currentUser.id);
+                    }
+                } else {
+                    showToast(data.message, 'error');
+                }
+            } catch (e) {
+                showToast('Error al desvincular la cuenta', 'error');
+            }
+        });
+    }
 }
+
+function checkUrlParams() {
+    const params = new URLSearchParams(window.location.search);
+    const err = params.get('spotify_err');
+    const msg = params.get('spotify_msg');
+    
+    if (msg === 'linked') {
+        setTimeout(() => showToast('¡Cuenta de Spotify vinculada exitosamente!', 'success'), 500);
+    }
+    
+    if (err) {
+        let errMsg = 'Ocurrió un error con la vinculación.';
+        if (err === 'already_linked') errMsg = 'Esta cuenta de Spotify ya está vinculada a otro perfil de DJ CHISMOSO.';
+        else if (err === 'auth_failed') errMsg = 'Cancelaste la autorización o hubo un error en Spotify.';
+        
+        setTimeout(() => showToast(errMsg, 'error'), 500);
+    }
+    
+    // Limpiar URL para no mostrar el mensaje de nuevo al recargar
+    if (err || msg) {
+        window.history.replaceState({}, document.title, window.location.pathname);
+    }
+}
+
 
 // ==========================================
 // 1. GESTIÓN DE SESIÓN Y USUARIO
@@ -641,6 +708,12 @@ async function loadProfileData(userId) {
             document.getElementById('profile-followers-count').textContent = profile.followers_count;
             document.getElementById('profile-following-count').textContent = profile.following_count;
             document.getElementById('profile-posts-user').textContent = user.username;
+            
+            // Badge Spotify
+            const badge = document.getElementById('profile-spotify-badge');
+            if (badge) {
+                badge.style.display = user.spotify_account_id ? 'inline-flex' : 'none';
+            }
 
             // Canción Insignia
             const featuredArea  = document.getElementById('profile-featured-track-area');
@@ -741,6 +814,26 @@ function openEditProfileModal(user) {
     // Seleccionar avatar actual
     const radios = document.querySelectorAll('input[name="edit-avatar"]');
     radios.forEach(r => { r.checked = (r.value === user.avatar); });
+
+    // Estado Spotify
+    const title = document.getElementById('edit-spotify-status-title');
+    const desc = document.getElementById('edit-spotify-status-desc');
+    const btnLink = document.getElementById('btn-link-spotify');
+    const btnUnlink = document.getElementById('btn-unlink-spotify');
+
+    if (user.spotify_account_id) {
+        title.textContent = 'Vinculado';
+        title.style.color = '#1ed760';
+        desc.textContent = 'Cuenta de Spotify conectada y verificada';
+        btnLink.style.display = 'none';
+        btnUnlink.style.display = 'inline-block';
+    } else {
+        title.textContent = 'No vinculado';
+        title.style.color = 'inherit';
+        desc.textContent = 'Conecta tu cuenta para verificar tu perfil';
+        btnLink.style.display = 'inline-block';
+        btnUnlink.style.display = 'none';
+    }
 
     openModal('modal-edit-profile');
 }

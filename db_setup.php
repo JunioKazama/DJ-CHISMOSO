@@ -165,15 +165,23 @@
                     `avatar` VARCHAR(255) NOT NULL,
                     `bio` TEXT DEFAULT NULL,
                     `featured_track` VARCHAR(500) DEFAULT NULL,
+                    `spotify_account_id` VARCHAR(100) UNIQUE DEFAULT NULL,
                     `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
                 
-                // Asegurar que la columna featured_track exista si la tabla ya existía
+                // Asegurar que las columnas existan si la tabla ya existía
                 try {
                     $pdo_setup->exec("SELECT featured_track FROM users LIMIT 1");
                 } catch (PDOException $e) {
                     $pdo_setup->exec("ALTER TABLE users ADD COLUMN featured_track VARCHAR(500) DEFAULT NULL AFTER bio");
                     logMsg("Columna 'featured_track' agregada a la tabla 'users'.", 'info');
+                }
+                
+                try {
+                    $pdo_setup->exec("SELECT spotify_account_id FROM users LIMIT 1");
+                } catch (PDOException $e) {
+                    $pdo_setup->exec("ALTER TABLE users ADD COLUMN spotify_account_id VARCHAR(100) UNIQUE DEFAULT NULL AFTER featured_track");
+                    logMsg("Columna 'spotify_account_id' agregada a la tabla 'users'.", 'info');
                 }
                 logMsg("Tabla 'users' creada o actualizada exitosamente.", 'success');
 

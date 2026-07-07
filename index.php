@@ -164,7 +164,10 @@ require_once 'config.php';
                     <div class="profile-header-card">
                         <div class="profile-avatar-large" id="profile-avatar">🎧</div>
                         <div class="profile-info-details">
-                            <h2 id="profile-username">Cargando...</h2>
+                            <h2 class="d-flex align-items-center">
+                                <span id="profile-username">Cargando...</span>
+                                <span id="profile-spotify-badge" class="badge rounded-pill ms-2" style="background: #1ed760; color: #000; font-size: 0.7rem; display: none; align-items: center;"><i class="fa-brands fa-spotify me-1"></i> Verificado</span>
+                            </h2>
                             <p class="profile-joined" id="profile-joined">Miembro desde: ...</p>
                             <p class="profile-bio" id="profile-bio">Este usuario aún no tiene biografía musical.</p>
                             
@@ -498,6 +501,23 @@ require_once 'config.php';
                                 <input type="url" id="edit-featured-track" class="form-control bs-input border-start-0" placeholder="https://open.spotify.com/track/... (opcional)">
                             </div>
                             <div class="form-text text-muted mt-1" style="font-size: 0.8rem;">Esta canción aparecerá en tu perfil para que todos la escuchen.</div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label text-secondary text-uppercase fw-bold" style="font-size: 0.85rem; letter-spacing: 0.5px;">Integración con Spotify</label>
+                            <div id="edit-spotify-integration-area" class="d-flex align-items-center justify-content-between p-3 rounded" style="background: rgba(30, 215, 96, 0.1); border: 1px solid rgba(30, 215, 96, 0.2);">
+                                <div class="d-flex align-items-center">
+                                    <i class="fa-brands fa-spotify me-3" style="font-size: 1.8rem; color: #1ed760;"></i>
+                                    <div>
+                                        <h6 class="mb-0 fw-bold" id="edit-spotify-status-title">No vinculado</h6>
+                                        <small class="text-muted" id="edit-spotify-status-desc">Conecta tu cuenta para verificar tu perfil</small>
+                                    </div>
+                                </div>
+                                <div>
+                                    <button type="button" id="btn-link-spotify" class="btn btn-sm btn-outline-success rounded-pill fw-bold" style="border-color: #1ed760; color: #1ed760;">Vincular</button>
+                                    <button type="button" id="btn-unlink-spotify" class="btn btn-sm btn-outline-danger rounded-pill fw-bold" style="display: none;">Desvincular</button>
+                                </div>
+                            </div>
                         </div>
 
                         <div id="edit-profile-error-msg" class="error-msg mb-3" style="display: none;"></div>
