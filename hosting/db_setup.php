@@ -160,6 +160,7 @@
                     `avatar` VARCHAR(255) NOT NULL,
                     `bio` TEXT DEFAULT NULL,
                     `featured_track` VARCHAR(500) DEFAULT NULL,
+                    `spotify_account_id` VARCHAR(255) DEFAULT NULL,
                     `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
                 
@@ -170,6 +171,15 @@
                     $pdo_setup->exec("ALTER TABLE users ADD COLUMN featured_track VARCHAR(500) DEFAULT NULL AFTER bio");
                     logMsg("Columna 'featured_track' agregada a la tabla 'users'.", 'info');
                 }
+                
+                // Asegurar que la columna spotify_account_id exista si la tabla ya existía
+                try {
+                    $pdo_setup->exec("SELECT spotify_account_id FROM users LIMIT 1");
+                } catch (PDOException $e) {
+                    $pdo_setup->exec("ALTER TABLE users ADD COLUMN spotify_account_id VARCHAR(255) DEFAULT NULL AFTER featured_track");
+                    logMsg("Columna 'spotify_account_id' agregada a la tabla 'users'.", 'info');
+                }
+                
                 logMsg("Tabla 'users' creada o actualizada exitosamente.", 'success');
 
                 // 2. Crear Tabla de Publicaciones

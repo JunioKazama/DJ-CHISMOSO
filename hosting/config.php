@@ -19,6 +19,11 @@ define('DB_USER', 'u310445577_Junio');   // Reemplaza por tu usuario de BD de Ho
 define('DB_PASS', 'K1ax71?y'); // Reemplaza por la contraseña de la BD
 define('DB_NAME', 'u310445577_DJ_CHISMOSO');    // Reemplaza por el nombre de la BD (ej: u123456789_dj_chismoso)
 
+// Configuración de Spotify OAuth
+define('SPOTIFY_CLIENT_ID', '406e0399bfbe4e8d83130c8137994e09'); // Reemplazar con el Client ID de Spotify
+define('SPOTIFY_CLIENT_SECRET', 'cac4ba1cffa1490d890553a1a91667a2'); // Reemplazar con el Client Secret de Spotify
+define('SPOTIFY_REDIRECT_URI', 'https://quirozweb.com/api.php?action=spotify_callback');
+
 // Conexión PDO a la Base de Datos
 $pdo = null;
 
@@ -62,7 +67,7 @@ function getLoggedInUser() {
     global $pdo;
     if (!isLoggedIn()) return null;
     
-    $stmt = $pdo->prepare("SELECT id, username, avatar, bio, featured_track, created_at FROM users WHERE id = ?");
+    $stmt = $pdo->prepare("SELECT id, username, avatar, bio, featured_track, created_at, spotify_account_id FROM users WHERE id = ?");
     $stmt->execute([$_SESSION['user_id']]);
     return $stmt->fetch();
 }

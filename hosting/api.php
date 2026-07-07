@@ -237,6 +237,139 @@ try {
             break;
 
         // ==========================================
+        // 1.5. SPOTIFY OAUTH (VINCULACIÓN)
+        // ==========================================
+
+        case 'spotify_login':
+            if (!isLoggedIn()) {
+                $response['message'] = 'Debes iniciar sesión.';
+                break;
+            }
+            
+            // Generar un state para evitar CSRF
+            $state = bin2hex(random_bytes(16));
+            $_SESSION['spotify_state'] = $state;
+
+            $scope = 'user-read-private user-read-email';
+            $params = [
+                'response_type' => 'code',
+                'client_id' => SPOTIFY_CLIENT_ID,
+                'scope' => $scope,
+                'redirect_uri' => SPOTIFY_REDIRECT_URI,
+                'state' => $state
+            ];
+            
+            $url = 'https://accounts.spotify.com/authorize?' . http_build_query($params);
+            
+            // Redirigir directamente a la página de Spotify si la petición es GET
+            // Como esto se llamará vía Fetch, devolvemos la URL para que el JS redirija
+            $response['success'] = true;
+            $response['message'] = 'URL de autorización generada.';
+            $response['data'] = ['url' => $url];
+            break;
+
+        case 'spotify_callback':
+            // Este endpoint debe ser accesible vía navegador (redirección)
+            // Cambiaremos la forma en que devuelve la respuesta (Header Redirect o HTML) para que vuelva al SPA
+            $code = $_GET['code'] ?? null;
+            $state = $_GET['state'] ?? null;
+            $error = $_GET['error'] ?? null;
+
+            if ($error || !$code) {
+                header('Location: index.php?spotify_err=auth_failed');
+                exit;
+            }
+
+            // Opcional: Validar el state (si la sesión se mantiene tras el redirect)
+            if (!isset($_SESSION['spotify_state']) || $state !== $_SESSION['spotify_state']) {
+                header('Location: index.php?spotify_err=invalid_state');
+                exit;
+            }
+            unset($_SESSION['spotify_state']);
+
+            if (!isLoggedIn()) {
+                header('Location: index.php?spotify_err=not_logged_in');
+                exit;
+            }
+
+            // 1. Intercambiar code por token
+            $ch = curl_init();
+            curl_setopt($ch, CURLOPT_URL, 'https://accounts.spotify.com/api/token');
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+            curl_setopt($ch, CURLOPT_POST, 1);
+            curl_setopt($ch, CURLOPT_POSTFIELDS, http_build_query([
+                'grant_type' => 'authorization_code',
+                'code' => $code,
+                'redirect_uri' => SPOTIFY_REDIRECT_URI
+            ]));
+            
+            $headers = [];
+            $headers[] = 'Authorization: Basic ' . base64_encode(SPOTIFY_CLIENT_ID . ':' . SPOTIFY_CLIENT_SECRET);
+            $headers[] = 'Content-Type: application/x-www-form-urlencoded';
+            curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+            
+            $result = curl_exec($ch);
+            curl_close($ch);
+            
+            $token_data = json_decode($result, true);
+
+            if (!isset($token_data['access_token'])) {
+                header('Location: index.php?spotify_err=token_failed');
+                exit;
+            }
+            
+            $access_token = $token_data['access_token'];
+
+            // 2. Obtener Perfil del usuario
+            $ch = curl_init();
+            curl_setopt($ch, CURLOPT_URL, 'https://api.spotify.com/v1/me');
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+            curl_setopt($ch, CURLOPT_HTTPHEADER, ['Authorization: Bearer ' . $access_token]);
+            $profile_result = curl_exec($ch);
+            curl_close($ch);
+            
+            $spotify_profile = json_decode($profile_result, true);
+
+            if (!isset($spotify_profile['id'])) {
+                header('Location: index.php?spotify_err=profile_failed');
+                exit;
+            }
+            
+            $spotify_account_id = $spotify_profile['id'];
+
+            // 3. Guardar en base de datos de manera única
+            try {
+                $stmt = $pdo->prepare("UPDATE users SET spotify_account_id = ? WHERE id = ?");
+                $stmt->execute([$spotify_account_id, $_SESSION['user_id']]);
+                
+                // Éxito, redirigir al index con mensaje
+                header('Location: index.php?spotify_msg=linked');
+                exit;
+            } catch (PDOException $e) {
+                // Posible error de restricción UNIQUE (Integrity constraint violation)
+                if ($e->getCode() == 23000) {
+                    header('Location: index.php?spotify_err=already_linked');
+                    exit;
+                }
+                header('Location: index.php?spotify_err=db_error');
+                exit;
+            }
+            break;
+
+        case 'unlink_spotify':
+            if (!isLoggedIn()) {
+                $response['message'] = 'Debes iniciar sesión.';
+                break;
+            }
+            
+            $stmt = $pdo->prepare("UPDATE users SET spotify_account_id = NULL WHERE id = ?");
+            $stmt->execute([$_SESSION['user_id']]);
+            
+            $response['success'] = true;
+            $response['message'] = 'Cuenta de Spotify desvinculada exitosamente.';
+            break;
+
+        // ==========================================
         // 2. PUBLICACIONES (POSTS)
         // ==========================================
 
@@ -527,7 +660,7 @@ try {
             }
 
             // Obtener datos del usuario (incluyendo featured_track)
-            $stmt = $pdo->prepare("SELECT id, username, avatar, bio, featured_track, created_at FROM users WHERE id = ?");
+            $stmt = $pdo->prepare("SELECT id, username, avatar, bio, featured_track, spotify_account_id, created_at FROM users WHERE id = ?");
             $stmt->execute([$target_user_id]);
             $user_data = $stmt->fetch();
 
