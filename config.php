@@ -13,9 +13,9 @@ if (session_status() === PHP_SESSION_NONE) {
 
 // Configuración de la base de datos (Fácilmente modificable para Hostinger)
 define('DB_HOST', 'localhost');
-define('DB_USER', 'root');
-define('DB_PASS', '');
-define('DB_NAME', 'dj_chismoso');
+define('DB_USER', 'u310445577_Junio');
+define('DB_PASS', 'K1ax71?y');
+define('DB_NAME', 'u310445577_DJ_CHISMOSO');
 
 // Configuración de Spotify OAuth
 define('SPOTIFY_CLIENT_ID', '406e0399bfbe4e8d83130c8137994e09'); // Reemplazar con el Client ID de Spotify
