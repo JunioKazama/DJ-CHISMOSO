@@ -302,39 +302,81 @@ try {
                 'code' => $code,
                 'redirect_uri' => SPOTIFY_REDIRECT_URI
             ]));
-            
-            $headers = [];
-            $headers[] = 'Authorization: Basic ' . base64_encode(SPOTIFY_CLIENT_ID . ':' . SPOTIFY_CLIENT_SECRET);
-            $headers[] = 'Content-Type: application/x-www-form-urlencoded';
-            curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
-            
+            curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+            curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, false);
+            curl_setopt($ch, CURLOPT_HTTPHEADER, [
+                'Authorization: Basic ' . base64_encode(SPOTIFY_CLIENT_ID . ':' . SPOTIFY_CLIENT_SECRET),
+                'Content-Type: application/x-www-form-urlencoded',
+                'User-Agent: DJ-Chismoso-App/1.0'
+            ]);
             $result = curl_exec($ch);
+            $token_http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            $curl_err = curl_error($ch);
             curl_close($ch);
-            
-            $token_data = json_decode($result, true);
 
-            if (!isset($token_data['access_token'])) {
+            // Inicializar log de depuración
+            $debug_content  = "=== SPOTIFY CALLBACK DEBUG ===\n";
+            $debug_content .= "Fecha: " . date('Y-m-d H:i:s') . "\n";
+            $debug_content .= "REDIRECT_URI enviado: " . SPOTIFY_REDIRECT_URI . "\n\n";
+            $debug_content .= "--- PASO 1: TOKEN ---\n";
+            $debug_content .= "HTTP Code Token: " . $token_http_code . "\n";
+            $debug_content .= "cURL Error Token: " . $curl_err . "\n";
+            $debug_content .= "Raw Token Response: " . $result . "\n\n";
+
+            if ($result === false) {
+                $debug_content .= "FALLÓ PASO 1 (cURL error de red)\n";
+                file_put_contents(__DIR__ . '/spotify_debug.txt', $debug_content);
                 header('Location: index.php?spotify_err=token_failed');
                 exit;
             }
-            
+
+            $token_data = json_decode($result, true);
+            if (!isset($token_data['access_token'])) {
+                $debug_content .= "FALLÓ PASO 1 (No se obtuvo access_token)\n";
+                file_put_contents(__DIR__ . '/spotify_debug.txt', $debug_content);
+                header('Location: index.php?spotify_err=token_failed');
+                exit;
+            }
             $access_token = $token_data['access_token'];
 
             // 2. Obtener Perfil del usuario
             $ch = curl_init();
             curl_setopt($ch, CURLOPT_URL, 'https://api.spotify.com/v1/me');
             curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
-            curl_setopt($ch, CURLOPT_HTTPHEADER, ['Authorization: Bearer ' . $access_token]);
+            curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+            curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, false);
+            curl_setopt($ch, CURLOPT_HTTPHEADER, [
+                'Authorization: Bearer ' . $access_token,
+                'User-Agent: DJ-Chismoso-App/1.0'
+            ]);
             $profile_result = curl_exec($ch);
+            $profile_http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            $profile_curl_err = curl_error($ch);
             curl_close($ch);
-            
-            $spotify_profile = json_decode($profile_result, true);
 
-            if (!isset($spotify_profile['id'])) {
+            $debug_content .= "--- PASO 2: PERFIL ---\n";
+            $debug_content .= "HTTP Code Perfil: " . $profile_http_code . "\n";
+            $debug_content .= "cURL Error Perfil: " . $profile_curl_err . "\n";
+            $debug_content .= "Raw Profile Response: " . $profile_result . "\n\n";
+
+            if ($profile_result === false) {
+                $debug_content .= "FALLÓ PASO 2 (cURL error de red)\n";
+                file_put_contents(__DIR__ . '/spotify_debug.txt', $debug_content);
                 header('Location: index.php?spotify_err=profile_failed');
                 exit;
             }
-            
+
+            $spotify_profile = json_decode($profile_result, true);
+            if (!isset($spotify_profile['id'])) {
+                $debug_content .= "FALLÓ PASO 2 (No se obtuvo el campo 'id' del perfil)\n";
+                file_put_contents(__DIR__ . '/spotify_debug.txt', $debug_content);
+                header('Location: index.php?spotify_err=profile_failed');
+                exit;
+            }
+
+            $debug_content .= "¡VINCULACIÓN EXITOSA! Spotify ID: " . $spotify_profile['id'] . "\n";
+            file_put_contents(__DIR__ . '/spotify_debug.txt', $debug_content);
+
             $spotify_account_id = $spotify_profile['id'];
 
             // 3. Guardar en base de datos de manera única

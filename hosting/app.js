@@ -43,17 +43,19 @@ function AppInit() {
     const btnLink = document.getElementById('btn-link-spotify');
     if (btnLink) {
         btnLink.addEventListener('click', async () => {
+            showToast('Conectando con Spotify...', 'info');
             try {
                 const res = await fetch('api.php?action=spotify_login');
                 const data = await res.json();
+                console.log('[Spotify Login]', data);
                 if (data.success && data.data && data.data.url) {
                     window.location.href = data.data.url;
                 } else {
-                    showToast(data.message, 'error');
+                    showToast('Error al vincular: ' + (data.message || 'Sin respuesta'), 'error');
                 }
             } catch (e) {
                 console.error(e);
-                showToast('Error al conectar con Spotify', 'error');
+                showToast('Error de red al conectar con Spotify: ' + e.message, 'error');
             }
         });
     }
@@ -92,9 +94,14 @@ function checkUrlParams() {
     }
     
     if (err) {
-        let errMsg = 'Ocurrió un error con la vinculación.';
+        let errMsg = `Ocurrió un error con la vinculación (${err}).`;
         if (err === 'already_linked') errMsg = 'Esta cuenta de Spotify ya está vinculada a otro perfil de DJ CHISMOSO.';
         else if (err === 'auth_failed') errMsg = 'Cancelaste la autorización o hubo un error en Spotify.';
+        else if (err === 'invalid_state') errMsg = 'Error de validación de sesión de seguridad (state inválido).';
+        else if (err === 'not_logged_in') errMsg = 'Sesión de usuario perdida al regresar de Spotify.';
+        else if (err === 'token_failed') errMsg = 'No se pudo obtener el token de acceso de Spotify. Revisa cURL en tu host.';
+        else if (err === 'profile_failed') errMsg = 'No se pudo obtener el perfil de Spotify.';
+        else if (err === 'db_error') errMsg = 'Error al guardar la vinculación en la base de datos.';
         
         setTimeout(() => showToast(errMsg, 'error'), 500);
     }
