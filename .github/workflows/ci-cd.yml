@@ -33,8 +33,8 @@ jobs:
         shell: bash
         run: |
           set -e
-          find . -type f -name "*.php" \
-            -not -path "./vendor/*" \
+          find hosting/ -type f -name "*.php" \
+            -not -path "*/vendor/*" \
             -print0 | xargs -0 -r -n1 php -l
 
   desplegar:
@@ -58,10 +58,10 @@ jobs:
           protocol: ftp
           port: 21
 
-          local-dir: ./
+          local-dir: hosting/
           server-dir: ./
 
-          dry-run: false
+          dry-run: true
           dangerous-clean-slate: false
 
           exclude: |
