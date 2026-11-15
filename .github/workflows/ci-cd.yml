@@ -16,7 +16,6 @@ permissions:
   contents: read
 
 jobs:
-
   validar:
     name: Validar codigo PHP
     runs-on: ubuntu-latest
@@ -34,7 +33,6 @@ jobs:
         shell: bash
         run: |
           set -e
-
           find . -type f -name "*.php" \
             -not -path "./vendor/*" \
             -print0 | xargs -0 -r -n1 php -l
@@ -61,10 +59,9 @@ jobs:
           port: 21
 
           local-dir: ./
-          server-dir: public_html/
+          server-dir: ./
 
-          dry-run: false
-
+          dry-run: true
           dangerous-clean-slate: false
 
           exclude: |
@@ -79,4 +76,3 @@ jobs:
             **/*.sql
             **/*.log
             **/backups/**
-
