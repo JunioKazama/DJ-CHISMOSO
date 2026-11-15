@@ -1,0 +1,69 @@
+
+name: DJ CHISMOSO - CI/CD
+
+on:
+  pull_request:
+    branches:
+      - main
+
+  push:
+    branches:
+      - main
+
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validar:
+    name: Validar codigo PHP
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Descargar codigo
+        uses: actions/checkout@v6
+
+      - name: Configurar PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+
+      - name: Comprobar sintaxis PHP
+        run: |
+          find . -type f -name "*.php" \
+            -not -path "./vendor/*" \
+            -print0 | xargs -0 -n1 php -l
+
+  desplegar:
+    name: Publicar en hosting FTP
+    needs: validar
+    runs-on: ubuntu-latest
+
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+
+    steps:
+      - name: Descargar codigo
+        uses: actions/checkout@v6
+
+      - name: Publicar archivos por FTP
+        uses: SamKirkland/FTP-Deploy-Action@v4.4.0
+        with:
+          server: ${{ secrets.FTP_SERVER }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          protocol: ftp
+          port: 21
+          local-dir: ./
+          server-dir: ${{ secrets.FTP_SERVER_DIR }}
+          dry-run: true
+          exclude: |
+            **/.git*
+            **/.github/**
+            **/node_modules/**
+            **/.env*
+            **/config.php
+            **/db_setup.php
+            **/*.sql
+            **/*.log
+            **/backups/**
