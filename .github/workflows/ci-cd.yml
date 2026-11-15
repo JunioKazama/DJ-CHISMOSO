@@ -63,7 +63,7 @@ jobs:
           local-dir: ./
           server-dir: public_html/
 
-          dry-run: true
+          dry-run: false
 
           dangerous-clean-slate: false
 
