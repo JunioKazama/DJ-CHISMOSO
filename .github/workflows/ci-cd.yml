@@ -16,54 +16,67 @@ permissions:
   contents: read
 
 jobs:
+
   validar:
     name: Validar codigo PHP
     runs-on: ubuntu-latest
 
     steps:
-      - name: Descargar codigo
+      - name: Obtener codigo
         uses: actions/checkout@v6
 
-      - name: Configurar PHP
+      - name: Configurar PHP 8.3
         uses: shivammathur/setup-php@v2
         with:
           php-version: '8.3'
 
-      - name: Comprobar sintaxis PHP
+      - name: Validar sintaxis PHP
+        shell: bash
         run: |
+          set -e
+
           find . -type f -name "*.php" \
             -not -path "./vendor/*" \
-            -print0 | xargs -0 -n1 php -l
+            -print0 | xargs -0 -r -n1 php -l
 
   desplegar:
-    name: Publicar en hosting FTP
+    name: Desplegar en hosting FTP
     needs: validar
     runs-on: ubuntu-latest
 
-    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
 
     steps:
-      - name: Descargar codigo
+      - name: Obtener codigo
         uses: actions/checkout@v6
 
-      - name: Publicar archivos por FTP
+      - name: Publicar archivos mediante FTP
         uses: SamKirkland/FTP-Deploy-Action@v4.4.0
         with:
           server: ${{ secrets.FTP_SERVER }}
           username: ${{ secrets.FTP_USERNAME }}
           password: ${{ secrets.FTP_PASSWORD }}
+
           protocol: ftp
           port: 21
+
           local-dir: ./
-          server-dir: ${{ secrets.FTP_SERVER_DIR }}
+          server-dir: public_html/
+
           dry-run: true
+
+          dangerous-clean-slate: false
+
           exclude: |
             **/.git*
+            **/.git*/**
             **/.github/**
             **/node_modules/**
+            **/vendor/**
             **/.env*
             **/config.php
             **/db_setup.php
             **/*.sql
             **/*.log
             **/backups/**
+
