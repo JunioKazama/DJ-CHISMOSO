@@ -1,15 +1,12 @@
-
 name: DJ CHISMOSO - CI/CD
 
 on:
   pull_request:
     branches:
       - main
-
   push:
     branches:
       - main
-
   workflow_dispatch:
 
 permissions:
@@ -17,9 +14,8 @@ permissions:
 
 jobs:
   validar:
-    name: Validar codigo PHP
+    name: Preparar entorno y ejecutar pruebas
     runs-on: ubuntu-latest
-
     steps:
       - name: Obtener codigo
         uses: actions/checkout@v6
@@ -28,25 +24,52 @@ jobs:
         uses: shivammathur/setup-php@v2
         with:
           php-version: '8.3'
+          extensions: pdo_mysql
+          coverage: none
 
-      - name: Validar sintaxis PHP
-        shell: bash
-        run: |
-          set -e
-          find hosting/ -type f -name "*.php" \
-            -not -path "*/vendor/*" \
-            -print0 | xargs -0 -r -n1 php -l
+      - name: Preparar entorno de validacion
+        run: bash scripts/preparar-entorno.sh
 
-  desplegar:
-    name: Desplegar en hosting FTP
+      - name: Ejecutar pruebas y validaciones
+        run: bash scripts/ejecutar-pruebas.sh
+
+  preparar_liberacion:
+    name: Generar paquete de liberacion
     needs: validar
     runs-on: ubuntu-latest
-
-    if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
-
     steps:
       - name: Obtener codigo
         uses: actions/checkout@v6
+
+      - name: Configurar PHP 8.3
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: pdo_mysql
+          coverage: none
+
+      - name: Preparar paquete
+        run: bash scripts/preparar-liberacion.sh
+
+      - name: Guardar paquete de liberacion
+        uses: actions/upload-artifact@v4
+        with:
+          name: dj-chismoso-release
+          path: build/release/
+          if-no-files-found: error
+          retention-days: 7
+
+  desplegar:
+    name: Desplegar en hosting FTP
+    needs: preparar_liberacion
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+    steps:
+      - name: Descargar paquete de liberacion
+        uses: actions/download-artifact@v4
+        with:
+          name: dj-chismoso-release
+          path: build/release/
 
       - name: Publicar archivos mediante FTP
         uses: SamKirkland/FTP-Deploy-Action@v4.4.0
@@ -54,25 +77,16 @@ jobs:
           server: ${{ secrets.FTP_SERVER }}
           username: ${{ secrets.FTP_USERNAME }}
           password: ${{ secrets.FTP_PASSWORD }}
-
           protocol: ftp
           port: 21
-
-          local-dir: hosting/
+          local-dir: build/release/
           server-dir: ./
-
-          dry-run: true
+          dry-run: false
           dangerous-clean-slate: false
-
           exclude: |
             **/.git*
             **/.git*/**
             **/.github/**
-            **/node_modules/**
-            **/vendor/**
             **/.env*
-            **/config.php
-            **/db_setup.php
-            **/*.sql
             **/*.log
             **/backups/**

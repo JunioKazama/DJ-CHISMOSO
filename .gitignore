@@ -1,5 +1,6 @@
 # Configuración privada
 config.php
+**/config.php
 .env
 .env.*
 
