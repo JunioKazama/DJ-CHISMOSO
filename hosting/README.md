@@ -269,35 +269,15 @@ Todos los endpoints responden en `Content-Type: application/json`.
 
 ---
 
-## ⚠️ Notas de Seguridad
-
-> [!CAUTION]
-> El archivo `config.php` contiene credenciales sensibles. **Nunca lo subas a un repositorio público** sin haber eliminado o reemplazado las credenciales reales con variables de entorno o valores de ejemplo.
-
-> [!WARNING]
-> Elimina o restringe el acceso a `db_setup.php` y `generar_hash.php` una vez que el sitio esté en producción, ya que son utilitarios de instalación que no deben estar accesibles públicamente.
-
----
-
 ## 📸 Capturas
 
 *Próximamente — ¡contribuye con tus propias capturas abriendo un Pull Request!*
 
 ---
 
-## 🤝 Contribuir
-
-1. Haz un **Fork** del repositorio.
-2. Crea una rama para tu feature: `git checkout -b feature/mi-nueva-funcionalidad`
-3. Haz commit de tus cambios: `git commit -m 'feat: agrega nueva funcionalidad'`
-4. Haz push a tu rama: `git push origin feature/mi-nueva-funcionalidad`
-5. Abre un **Pull Request**.
-
----
-
 ## 📄 Licencia
 
-Este proyecto es de código abierto. Siéntete libre de usarlo, modificarlo y mejorarlo.
+Este proyecto es de código abierto.
 
 ---
 
