@@ -269,12 +269,6 @@ Todos los endpoints responden en `Content-Type: application/json`.
 
 ---
 
-## 📸 Capturas
-
-*Próximamente — ¡contribuye con tus propias capturas abriendo un Pull Request!*
-
----
-
 ## 📄 Licencia
 
 Este proyecto es de código abierto.
